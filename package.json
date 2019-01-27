@@ -1,0 +1,8 @@
+{
+  "name": "node-on-unubo-cloud",
+  "version": "0.0.1",
+  "engines": {
+    "node": "8.x",
+    "npm": "6.x"
+  }
+}
