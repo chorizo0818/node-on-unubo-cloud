@@ -1,8 +1,14 @@
 {
   "name": "node-on-unubo-cloud",
   "version": "0.0.1",
+  "scripts": {
+    "start": "node server.js"
+  },
   "engines": {
     "node": "8.x",
     "npm": "6.x"
+  },
+  "dependencies": {
+    "express": "^4.16.4"
   }
 }

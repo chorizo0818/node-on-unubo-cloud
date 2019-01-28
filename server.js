@@ -1,9 +1,9 @@
-var http = require('http');
-var port = process.env.PORT || 5000;
+const app = require('express')();
+const path = require('path');
+const PORT = process.env.PORT || 3000;
 
-http.createServer(function (req, res) {
-  res.writeHead(200, {'Content-Type': 'text/plain'});
-  res.end('Welcome to Node.js on Unubo Cloud');
-}).listen(port, function() {
-  console.log('> Ready on http://localhost:' + port);
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname + '/index.html'));
 });
+
+app.listen(PORT, () => console.log(`> Ready on http://localhost:${PORT}`));
