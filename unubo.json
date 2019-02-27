@@ -3,9 +3,6 @@
   "build": {
     "src": "/",
     "use": "@unubo/node",
-    "commands": [
-      "npm run build",
-      "npm start"
-    ]
+    "commands": ["npm run build", "npm start"]
   }
 }
