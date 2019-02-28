@@ -1,8 +1,10 @@
 {
   "version": 1,
-  "build": {
-    "src": "/",
-    "use": "@unubo/node",
-    "commands": ["npm run build", "npm start"]
-  }
+  "builds": [
+    {
+      "src": "/",
+      "use": "@unubo/node",
+      "commands": ["npm run build", "npm start"]
+    }
+  ]
 }
