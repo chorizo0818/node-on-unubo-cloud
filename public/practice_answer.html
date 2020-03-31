@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="ja" style="height:100%;">
+  <head>
+    <title>ルビ機能について</title>
+    <meta http-equiv="Content-Style-Type" content="text/css">
+    <meta http-equiv="Content-Script-Type" content="text/javascript">
+    <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no">
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta http-equiv="Pragma" content="no-cache"><!-- 古い -->
+    <meta http-equiv="Cache-Control" content="no-store"><!-- 古い -->
+    <meta http-equiv="Expires" content="0"><!-- 古い -->
+    <script src="Chart.js"></script>
+    <script>
+      let dispWin = null;
+      let isMobile = false;
+      window.onload = function() {
+        if (navigator.userAgent.indexOf('iPhone') != -1 || navigator.userAgent.indexOf('iPad') != -1 || navigator.userAgent.indexOf('Android') > 0 || navigator.userAgent.indexOf('WP') != -1) {
+          isMobile = true;
+          document.getElementById('rubyBtn').style.display = 'inline';
+        }
+        document.onselectionchange = changeRubyVisibility;
+
+        document.getElementById('ta').value = '#仮名#[かな]\n[仮名/かな]\n@仮名[かな]';
+        show();
+      }
+      
+      function preview(ans) {
+        let odai = '';
+        if(dispWin && !dispWin.closed) {
+          dispWin.show(odai, ans);
+        }else{
+          let query = '';
+          if(odai) query += 'odai=' + encodeURIComponent(odai);
+          if(ans) query += '&answer=' + encodeURIComponent(ans);
+          dispWin = window.open('./display?' + query + '&d=' + Date.now(), 'disp', 'width=840,height=350');
+        }
+        dispWin.focus();
+      }
+
+      function changeRubyVisibility() {
+        if(!isMobile) return; // モバイル向けのみの機能とする
+
+        let target = document.getElementById('ta');
+        let pos = getRange(target);
+
+        let val = target.value;
+        let range = val.slice(pos.start, pos.end);
+
+        if (range || pos.start != pos.end) {
+          document.getElementById('rubyBtn').disabled = false;
+        }else{
+          document.getElementById('rubyBtn').disabled = true;
+        }
+      }
+
+      function show() {
+        let rubyMatch1 = /#(.+?)#\[(.+?)\]/g;
+//        let rubyMatch2 = /\[(.+?),\s*(.+?)\s*\]/g; // 配列のフォーマットと同じなので暴発が心配
+        let rubyMatch2 = /\[(.+?)\/(.+?)\s*\]/g;
+        let rubyMatch3 = /@(.+?)\[(.+?)\]/g;
+        let rubyTag = '<ruby>$1<rt style="font-size:9px;">$2</rt></ruby>';
+        let answer = document.getElementById('ta').value;
+
+        if(answer != undefined) {
+          answer = decodeURIComponent(answer);
+          if((answer.match(rubyMatch1) || answer.match(rubyMatch2) || answer.match(rubyMatch3)) && answer.indexOf('[plain]') != 0) {
+            answer = answer.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            answer = answer.replace(rubyMatch1, rubyTag);
+            answer = answer.replace(rubyMatch2, rubyTag);
+            answer = answer.replace(rubyMatch3, rubyTag);
+            document.getElementById('check').innerHTML = answer.replace(/\n/g, '<br/>');
+          }else{
+            document.getElementById('check').innerText = answer.replace(/\[plain\]/, '');
+          }
+        }else{
+          getAnswer();
+        }
+      }
+
+      function makeRuby() {
+        let target = document.getElementById('ta');
+        let pos = getRange(target);
+
+        let val = target.value;
+        let range = val.slice(pos.start, pos.end);
+        let beforeNode = val.slice(0, pos.start);
+        let afterNode  = val.slice(pos.end);
+        let insertNode;
+
+        if (range || pos.start != pos.end) {
+          let ruby = prompt('振り仮名を入力してください');
+          if(!ruby) return;
+//          insertNode = '#' + range + '#[' + ruby + ']';
+          insertNode = '[' + range + '/' + ruby + ']';
+          target.value = beforeNode + insertNode + afterNode;
+          show();
+        }
+      }
+
+      function getRange(obj) {
+        let pos = new Object();
+
+        if (navigator.userAgent.indexOf('Trident') != -1 || navigator.userAgent.indexOf('Edge') != -1) {
+          obj.focus();
+          let range = document.selection.createRange();
+          let clone = range.duplicate();
+
+          clone.moveToElementText(obj);
+          clone.setEndPoint( 'EndToEnd', range );
+
+          pos.start = clone.text.length - range.text.length;
+          pos.end   = clone.text.length - range.text.length + range.text.length;
+        }else if(window.getSelection()) {
+          pos.start = obj.selectionStart;
+          pos.end   = obj.selectionEnd;
+        }
+
+        return pos;
+      }
+    </script>
+    <style>
+      p {
+        font-size:14px;
+      }
+      .title {
+        margin-top:25px;
+        font-weight:bold;
+        font-size:16px;
+      }
+      div.ex {
+        font-size:14px;
+        line-height:120%;
+        background-color:#DDD;
+        color:#000;
+        border:1px solid #000;
+        padding:8px;
+      }
+      img {
+        border:1px solid #999;
+        width:240px;
+        height:360px;
+      }
+    </style>
+  </head>
+  <body style="width:90%;height:100%;">
+    <h3>入力の練習</h3>
+    <p class="title">ルビ機能の使い方</p>
+    <p>半角 # で囲った文字列の直後に "[" と "]" で囲った文字列を追加することで、回答にルビ（振り仮名）を振ることができます。</p>
+    <div class="ex">しかし#創痕#[きずあと]は死ぬまで消えぬ<br/>↓<br/>しかし<ruby>創痕<rt>きずあと</rt></ruby>は死ぬまで消えぬ</div>
+    <input type="button" value="プレビューで確認" onclick="preview('しかし#創痕#[きずあと]は死ぬまで消えぬ')"/>
+    <p>読みとカナの間に文字が入るとルビは機能しません。</p>
+    <div class="ex">しかし#創痕#ぁ[きずあと]は死ぬまで消えぬ<br/>↓<br/>しかし#創痕#ぁ[きずあと]は死ぬまで消えぬ ← 変化なし</div>
+    <input type="button" value="プレビューで確認" onclick="preview('しかし#創痕#ぁ[きずあと]は死ぬまで消えぬ')"/>
+    <p class="title">モバイル向けルビ入力支援</p>
+    <p>モバイルでもルビを簡単に入力することができます。回答画面を開くと「プレビュー」ボタンの左側に「ルビ」ボタンがあるはずです。最初は押せない状態です。</p>
+    <img src="https://cdn.glitch.com/c67863b4-4868-4c60-8dfb-2af6466bd745%2Fiphone01.jpg"/>
+    <p>まず回答を入力します。まだ「ルビ」ボタンは押せません。</p>
+    <img src="https://cdn.glitch.com/c67863b4-4868-4c60-8dfb-2af6466bd745%2Fiphone02.jpg"/>
+    <p>入力した回答のうち、ルビを振りたい部分を選択してください。選択の方法は端末によって違うと思います。</p>
+    <img src="https://cdn.glitch.com/c67863b4-4868-4c60-8dfb-2af6466bd745%2Fiphone03.jpg"/>
+    <p>文字列を選択すると「ルビ」ボタンが有効になると思います。この状態で「ルビ」ボタンを押してみてください。</p>
+    <img src="https://cdn.glitch.com/c67863b4-4868-4c60-8dfb-2af6466bd745%2Fiphone04.jpg"/>
+    <p>読み方を入力するダイアログが現れます。ここで読み方を入力してください。</p>
+    <img src="https://cdn.glitch.com/c67863b4-4868-4c60-8dfb-2af6466bd745%2Fiphone05.jpg"/>
+    <p>例えば「ハードラック」と入力します。</p>
+    <img src="https://cdn.glitch.com/c67863b4-4868-4c60-8dfb-2af6466bd745%2Fiphone06.jpg"/>
+    <p>指定した位置の読みを「ハードラック」にする、という記述に変わります。</p>
+    <img src="https://cdn.glitch.com/c67863b4-4868-4c60-8dfb-2af6466bd745%2Fiphone07.jpg"/>
+    <p>プレビューではこのようになります。</p>
+    <img src="https://cdn.glitch.com/c67863b4-4868-4c60-8dfb-2af6466bd745%2Fiphone08.jpg"/>
+    <p class="title">入力の練習</p>
+    <p>適当に入力の練習をどうぞ。あと「ハードラック」は不幸じゃなくて<a href="https://dic.pixiv.net/a/%E4%B8%8D%E9%81%8B%28%E3%83%8F%E3%83%BC%E3%83%89%E3%83%A9%E3%83%83%E3%82%AF%29%E3%81%A8%E8%B8%8A%28%E3%83%80%E3%83%B3%E3%82%B9%29%E3%81%A3%E3%81%A1%E3%81%BE%E3%81%A3%E3%81%9F">不運だった</a>ことに今になって気づきました。</p>
+    <div id="check" style="font-family:Arial, Verdana, Roboto, メイリオ , Meiryo;overflow:auto;font-size:16px;display:block-block;width:360px;height:80px;background-color:#FF9;border:1px solid #666;padding:4px;"></div>
+    <textarea id="ta" style="display:inline-block;width:365px;height:50px;font-size:14px;" oninput="show()" onchange="show()" placeholder="ここに入力"></textarea>
+    <input type="button" id="rubyBtn" value="ルビ" onclick="makeRuby();" disabled style="display:none;"/>
+  </body>
+</html>

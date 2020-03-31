@@ -1,0 +1,189 @@
+<!-- This is a static file -->
+<!-- served from your routes in server.js -->
+
+<!-- You might want to try something fancier: -->
+<!-- html/nunjucks docs: https://mozilla.github.io/nunjucks/ -->
+<!-- pug: https://pugjs.org/ -->
+<!-- haml: http://haml.info/ -->
+<!-- hbs(handlebars): http://handlebarsjs.com/ -->
+
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <title>ユーザ情報変更</title>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta http-equiv="Pragma" content="no-cache"><!-- 古い -->
+    <meta http-equiv="Cache-Control" content="no-store"><!-- 古い -->
+    <meta http-equiv="Expires" content="0"><!-- 古い -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script>
+      let isMobile = false;
+      let currentName;
+      let msgs_error = ['ラジオネームは必須です', '使用できないラジオネームです'];
+      let query = {};
+
+      window.onload = window.onpageshow = function() {
+        if (navigator.userAgent.indexOf('iPhone') != -1 || navigator.userAgent.indexOf('Android') > 0 || navigator.userAgent.indexOf('WP') != -1) {
+          isMobile = true;
+        }
+        if(isMobile) {
+          document.getElementById('links').style.display = 'none';
+          document.getElementById('select_link').style.display = 'block';
+        }
+        let anchors = document.getElementsByTagName('a');
+        for(let i in anchors){
+          if(!anchors[i].search) anchors[i].href += '?d=' + Date.now();
+        }
+        let options = document.getElementById('select_link').options;
+        if(isMobile) {
+          for(let i in options){
+            if(options[i].value) {
+              // alert(location.pathname + '\n' + options[i].value);
+              if(location.pathname == options[i].value) options[i].selected = true;
+              options[i].value += '?d=' + Date.now();
+            }
+          }
+        }
+        if (location.search.length > 1) {
+          var m_Array = location.search.substring(1).split("&"); 
+          for (var key in m_Array) {
+            var q_Array = m_Array[key].split("=");
+            var name = q_Array[0];
+            query[name] = q_Array[1];
+          }
+        }
+        let errNum = query.errcode;
+        if(errNum && errNum < msgs_error.length) {
+          document.getElementById('err').innerText = msgs_error[errNum];
+          document.getElementById('err').style.display = 'inline-block';
+          if(query.errcode == 1) {
+            document.getElementById('err').innerText += '：' + decodeURIComponent(query.name);
+          }
+        }
+        
+        getUser();
+      };
+      
+      function getUser() {
+        var url = './getuser?d=' + Date.now();
+
+        req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+
+        req.onreadystatechange = function(){
+          if(req.readyState == 4 && req.status == 200) {
+            let user = JSON.parse(req.response);
+            if(user.name) document.getElementById('username').value = user.name;
+            if(user.location) document.getElementById('location').value = user.location;
+            if(user.generation) document.getElementById('generation').value = user.generation;
+            if(user.gender) document.getElementById('gender').value = user.gender;
+            currentName = user.name;
+          }
+        };
+        req.open("GET", url, true);
+        req.setRequestHeader("Content-Type" , "application/json");
+        req.send();
+      }
+
+      function checkId(name) {
+        let msg_existence = document.getElementById('err');
+        let btnSubmit = document.getElementById('submit');
+        if(!name){
+          msg_existence.innerText = '必須です';
+          msg_existence.style.display = 'inline-block';
+          btnSubmit.disabled = true;
+        }
+
+        let url = './find?name=' + encodeURIComponent(name) + '&d=' + Date.now();
+
+        req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+
+        req.onreadystatechange = function(){
+          if(req.readyState == 4 && req.status == 200) {
+            if(!name){
+              // 非同期処理完了後にメッセージが上書きされる可能性がある
+              msg_existence.innerText = '必須です';
+              msg_existence.style.display = 'inline-block';
+              btnSubmit.disabled = true;
+            }else{
+              if(req.response != 0 && name != currentName) {
+                msg_existence.innerText = '使用不可';
+                msg_existence.style.display = 'inline-block';
+                btnSubmit.disabled = true;
+              }else{
+                msg_existence.style.display = 'none';
+                btnSubmit.disabled = false;
+              }
+            }
+          }
+        };
+        req.open("GET", url, true);
+        req.setRequestHeader("Content-Type" , "application/json");
+        req.send();
+      }
+      
+      function prepareXMLHttpRequest() {
+        if (window.XMLHttpRequest) {
+          return new XMLHttpRequest();
+        } else if (window.ActiveXObject) {
+          return new ActiveXObject("Microsoft.XMLHTTP");
+        }
+        return null;
+      }
+      
+      function movePage(select) {
+        location.href = select.options[select.selectedIndex].value;
+      }
+    </script>
+    <style>
+a:link {
+  color: blue;
+}
+a:visited {
+  color: blue;
+}
+a:hover {
+  color: #99F;
+}
+a:active {
+  color: #99F;
+}
+input[type="text"], input[type="password"] {
+  width: 240px;
+}
+    </style>
+  </head>
+  <body style="background-color:#FFFFE0;">
+    <div>
+      <span id="links">
+        <a href="./answer">回答する</a> | <a href="./sendodai">お題投稿</a> | <a href="./editprofile">ユーザ情報変更</a> | <a href="./logout">ログアウト</a>
+      </span>
+      <select id="select_link" style="display:none;" onchange="movePage(this)">
+        <option value="/answer">回答する</option>
+        <option value="/sendodai">お題投稿</option>
+        <option value="/editprofile">ユーザ情報変更</option>
+        <option value="/logout">ログアウト</option>
+      </select>
+    </div>
+    <h1 style="font-size:20px;">ユーザ情報変更</h1>
+    
+    <form action="/editprofile" method="post">
+      <input type="text" id="username" name="username" placeholder="ラジオネーム" oninput="checkId(this.value)" onchange="checkId(this.value)"/><span id="err" style="display:none;color:#F00;"></span><br/>
+      <input type="text" id="location" name="location" placeholder="おところ（任意）"/><br/>
+      <input type="text" id="generation" name="generation" placeholder="年代（任意）"/><br/>
+      <input type="text" id="gender" name="gender" placeholder="性別（任意）"/><br/>
+      <input type="password" name="pw" placeholder="パスワード（変更するなら）"/><br/>
+      <input id="submit" type="submit" value="ユーザ情報変更"/>
+      <input type="button" value="キャンセル" onclick="window.location.href='/'">
+    </form>
+    
+  </body>
+</html>

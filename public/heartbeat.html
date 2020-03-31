@@ -1,0 +1,65 @@
+<html lang="ja">
+  <head>
+    <title>heart beat</title>
+    <meta http-equiv="Content-Style-Type" content="text/css">
+    <meta http-equiv="Content-Script-Type" content="text/javascript">
+    <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no">
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <script>
+      window.onload = function() {
+        getUser();
+      }
+
+      let interval = 3 * 60 * 1000; // 3分
+
+      function getUser() {
+        let url = location.href + '?d=' + Date.now();
+        let ta = document.getElementById('ta');
+
+        let req = prepareXMLHttpRequest();
+        if (req == null) {
+          ta.value = 'XMLHttpRequest is not supported';
+          setTimeout(getUser, interval);
+          return;
+        }
+
+        req.onreadystatechange = function(){
+          if(req.readyState == 4) {
+            let now = new Date();
+            let datestr = now.getFullYear() + '/' + formatFigure(now.getMonth() + 1) + '/' + formatFigure(now.getDate()) + ' ' + formatFigure(now.getHours()) + '時' + formatFigure(now.getMinutes()) + '分' + formatFigure(now.getSeconds()) + '秒';
+            try {
+              ta.value = datestr + '\n' + JSON.stringify(JSON.parse(req.response), null, '  ');
+            }catch(e){
+              ta.value = datestr + '\n' + req.response;
+            }
+            setTimeout(getUser, interval);
+          }
+        };
+        req.open("GET", url, true);
+        req.setRequestHeader("Content-Type" , "application/json");
+        req.send();
+      }
+
+      function formatFigure(num) {
+        num += '';
+        if (num.length === 1) {
+          num = '0' + num;
+        }
+        return num;     
+      }
+
+      function prepareXMLHttpRequest() {
+        if (window.XMLHttpRequest) {
+          return new XMLHttpRequest();
+        } else if (window.ActiveXObject) {
+          return new ActiveXObject("Microsoft.XMLHTTP");
+        }
+        return null;
+      }
+    </script>
+  </head>
+  <body>
+    <textarea id="ta" cols="100" rows="10"></textarea>
+  </body>
+</html>

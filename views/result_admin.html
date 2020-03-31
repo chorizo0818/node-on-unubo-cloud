@@ -1,0 +1,631 @@
+<!-- This is a static file -->
+<!-- served from your routes in server.js -->
+
+<!-- You might want to try something fancier: -->
+<!-- html/nunjucks docs: https://mozilla.github.io/nunjucks/ -->
+<!-- pug: https://pugjs.org/ -->
+<!-- haml: http://haml.info/ -->
+<!-- hbs(handlebars): http://handlebarsjs.com/ -->
+
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <title>大喜利の結果</title>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta http-equiv="Pragma" content="no-cache"><!-- 古い -->
+    <meta http-equiv="Cache-Control" content="no-store"><!-- 古い -->
+    <meta http-equiv="Expires" content="0"><!-- 古い -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="Chart.js"></script>
+    <script>
+      let myName;
+      let myId;
+      let targetOdai = 0;
+      let users = {};
+      let odais = {};
+      let odaiready = false;
+      let userready = false;
+      let isFirefox = (navigator.userAgent.indexOf('Firefox') != -1);
+
+      let isMobile = false;
+
+      if (navigator.userAgent.indexOf('iPhone') != -1 || navigator.userAgent.indexOf('Android') > 0 || navigator.userAgent.indexOf('WP') != -1) {
+        isMobile = true;
+      }
+
+      window.onload = function() {
+        let anchors = document.getElementsByTagName('a');
+        for(let i in anchors){
+          anchors[i].href += '?d=' + Date.now();
+        }
+        getUser();
+        getOdais();
+      }
+      
+      function getUser(id) {
+        var url = './getuser?d=' + Date.now();
+        if(id) url += '&userId=' + id;
+
+        let req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+
+        req.onreadystatechange = function(){
+          if(req.readyState == 4 && req.status == 200) {
+            myName = JSON.parse(req.response).name;
+            myId = JSON.parse(req.response).id;
+            getUsers();
+          }
+        };
+        req.open("GET", url, true);
+        req.setRequestHeader("Content-Type" , "application/json");
+        req.send();
+      }
+      
+      function getUsers() {
+        var url = './getusers?d=' + Date.now();
+
+        let req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+
+        req.onreadystatechange = function(){
+          if(req.readyState == 4 && req.status == 200) {
+            users = JSON.parse(req.response);
+            let userSelect = document.getElementById('users');
+            for(let i in users) {
+              let opt = document.createElement('option');
+              opt.innerText = users[i].name;
+              opt.userId = users[i].id;
+              if(users[i].id == myId) opt.selected = true;
+              userSelect.appendChild(opt);
+            }
+            userready = true;
+            changeUser();
+          }
+        };
+        req.open("GET", url, true);
+        req.setRequestHeader("Content-Type" , "application/json");
+        req.send();
+      }
+      
+      function changeUser() {
+        let selectUsers = document.getElementById('users');
+        let idxUser = selectUsers.selectedIndex;
+        let userId = selectUsers.options[idxUser].userId;
+        drawGraph({}); // 一旦これで無理やりリセット
+        getGraphData(userId);
+
+        redraw();
+      }
+      
+      function getOdais() {
+        var url = './getodais?d=' + Date.now();
+        var odais = document.getElementById('odais');
+
+        let req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+
+        req.onreadystatechange = function(){
+          if(req.readyState == 4 && req.status == 200) {
+            let odais = JSON.parse(req.response);
+            if(!odais || !odais.length) {
+              let optEnpty = document.createElement('option');
+              optEnpty.innerText = 'No Entry';
+              optEnpty.fontSize = '16px';
+              optEnpty.fontWeight = 'bold';
+              document.getElementById('odais').appendChild(optEnpty);
+              return;
+            }
+            targetOdai = odais[0].id;
+
+            for(let key in odais) {
+              let opt = document.createElement('option');
+              opt.value = odais[key].id;
+              opt.innerText = odais[key].sentence;
+              opt.id = odais[key].id;
+              opt.createdBy = odais[key].user_id;
+              opt.closedDate = odais[key].date_close;
+              opt.user = odais[key].user;
+              document.getElementById('odais').appendChild(opt);
+            }
+            document.getElementById('odais').selectedIndex = 0;
+            odaiready = true;
+            getOdaiInfo();
+          }
+        };
+        req.open("GET", url, true);
+        req.setRequestHeader("Content-Type" , "application/json");
+        req.send();
+      }
+      
+      function getOdaiInfo() {
+        let idx = document.getElementById('odais').selectedIndex;
+        let userId = document.getElementById('odais').options[idx].createdBy;
+        let closedDate = document.getElementById('odais').options[idx].closedDate;
+        targetOdai = document.getElementById('odais').options[idx].id;
+
+        let user = document.getElementById('odais').options[idx].user;
+        let location = user.location;
+        if(location) {
+          location = ' ' + location;
+        }else{
+          location = '';
+        }
+        let generation = user.generation;
+        if(generation) {
+          generation = ' ' + generation;
+        }else{
+          generation = '';
+        }
+        let gender = user.gender;
+        if(gender) {
+          gender = ' ' + gender;
+        }else{
+          gender = '';
+        }
+        let createdBy = location + generation + gender + ' ' + user.name;
+        
+        document.getElementById('createdBy').innerText = '作成者：' + createdBy
+        if(closedDate) {
+          if(closedDate > Date.now()) {
+            closedDate = new Date(closedDate);
+            datestr = closedDate.getFullYear() + '/' + formatFigure(closedDate.getMonth() + 1) + '/' + formatFigure(closedDate.getDate()) + ' ' + formatFigure(closedDate.getHours()) + '時' + formatFigure(closedDate.getMinutes()) + '分' + ' 締め切り予定';
+          } else {
+            closedDate = new Date(closedDate);
+            datestr = closedDate.getFullYear() + '/' + formatFigure(closedDate.getMonth() + 1) + '/' + formatFigure(closedDate.getDate()) + ' ' + formatFigure(closedDate.getHours()) + '時' + formatFigure(closedDate.getMinutes()) + '分' + ' 募集終了';
+          }
+          document.getElementById('info').innerText = datestr;
+        }else{
+          document.getElementById('info').innerText = '回答受付中';
+        }
+        redraw();
+      }
+      
+      function redraw() {
+        if(!userready || !odaiready) return;
+        
+        let selectOdais = document.getElementById('odais');
+        let idxOdai = selectOdais.selectedIndex;
+        let odaiId = selectOdais.options[idxOdai].id;
+        let selectUsers = document.getElementById('users');
+        let idxUser = selectUsers.selectedIndex;
+        let userId = selectUsers.options[idxUser].userId;
+        // alert(odaiId + ':' + userId);
+        
+        let resultContainer = document.getElementById('result');
+        // 子要素を全て削除
+        while (resultContainer.firstChild) resultContainer.removeChild(resultContainer.firstChild);
+        let pInfo = document.createElement('p');
+        pInfo.innerText = 'Loading...';
+        resultContainer.appendChild(pInfo);
+
+        var url = './getuseranswers?userId=' + userId + '&odaiId=' + odaiId + '&d=' + Date.now();
+
+        let req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+
+        req.onreadystatechange = function(){
+          if(req.readyState == 4 && req.status == 200) {
+            let answers = JSON.parse(req.response);
+            if(!answers || !answers.length) {
+              let resultContainer = document.getElementById('result');
+              while (resultContainer.firstChild) resultContainer.removeChild(resultContainer.firstChild);
+              return;
+            }
+
+            for(let i in answers) {
+
+              let hasVoted = false;
+              for(let key in answers) {
+                if(answers[key].voted) {
+                  hasVoted = true;
+                  break;
+                }
+              }
+
+              // ここで document.getElementById('result') で取得した DIV に結果を表示
+              let resultContainer = document.getElementById('result');
+              while (resultContainer.firstChild) resultContainer.removeChild(resultContainer.firstChild);
+              
+              let table = document.createElement('table');
+              table.style.borderSpacing = '0px';
+              let rowColors = ['#E6E6FF', '#FFE6E6'];
+              for(let key in answers) {
+                let ans = answers[key];
+                let tr = document.createElement('tr');
+                tr.style.backgroundColor = rowColors[key%2];
+                let tdRank = document.createElement('td');
+                tdRank.style.textAlign = 'center';
+                if(ans.rank) {
+                  let spanRank = document.createElement('span');
+                  spanRank.innerText = ans.rank + '位';
+                  spanRank.style.whiteSpace = 'nowrap';
+                  spanRank.style.width = '30px';
+                  spanRank.style.fontWeight = 'bold';
+                  spanRank.style.fontSize = '16px';
+                  tdRank.appendChild(spanRank);
+                }
+                if(ans.voted || ans.voted == 0){
+                  if(ans.rank) tdRank.appendChild(document.createElement('br'));
+                  let spanVote = document.createElement('span');
+                  spanVote.innerText = '　[' + ans.voted + '%]　';
+                  spanVote.style.width = '30px';
+                  spanVote.style.whiteSpace = 'nowrap';
+                  spanVote.style.fontSize = '13px';
+                  tdRank.appendChild(spanVote);
+                }
+                let tdSentence = document.createElement('td');
+                tdSentence.style.fontWeight = 'bold';
+                tdSentence.style.fontSize = '14px';
+                if(hasVoted) {
+                  tdSentence.style.width = '270px';
+                }else{
+                  tdSentence.style.width = '300px';
+                }
+                tdSentence.id = 'ans' + ans.id;
+                tdSentence.innerText = ans.sentence;
+                tdSentence.style.padding = '5px 10px';
+                let tdInfo = document.createElement('td');
+                tdInfo.style.fontSize = '11px';
+                tdInfo.style.padding = '5px 10px';
+                let ansDate = new Date(ans.date);
+                let datestr = ansDate.getFullYear() + '/' + formatFigure(ansDate.getMonth() + 1) + '/' + formatFigure(ansDate.getDate()) + ' ' + formatFigure(ansDate.getHours()) + '時' + formatFigure(ansDate.getMinutes()) + '分';
+                tdInfo.innerText = datestr;
+                tr.appendChild(tdRank);
+                tr.appendChild(tdSentence);
+                tr.appendChild(tdInfo);
+
+                let tdEdit = document.createElement('td');
+                tdEdit.style.padding = '5px 10px';
+                let btnEdit = document.createElement('input');
+                btnEdit.type = 'button';
+                // btnEdit.style.fontWeight = 'bold';
+                btnEdit.style.color = '#063';
+                btnEdit.value = '編集';
+                btnEdit.className = 'over';
+                btnEdit.addEventListener('click', editAnswer(ans.id));
+                tdEdit.appendChild(btnEdit);
+                tdEdit.appendChild(document.createElement('br'));
+                let btnDel = document.createElement('input');
+                btnDel.type = 'button';
+                // btnDel.style.fontWeight = 'bold';
+                btnDel.style.color = '#C00';
+                btnDel.value = '削除';
+                btnDel.className = 'under';
+                btnDel.addEventListener('click', delAnswer(ans.id));
+                tdEdit.appendChild(btnDel);
+                tr.appendChild(tdEdit);
+
+                table.appendChild(tr);
+              }
+              resultContainer.appendChild(table);
+            }
+          }
+        };
+        req.open("GET", url, true);
+        req.setRequestHeader("Content-Type" , "application/json");
+        req.send();
+      }
+      
+      function delAnswer(ansId) {
+        return function() {
+          if(!confirm('削除しますか？')) return;
+          var url = './delete?d=' + Date.now();
+          let req = prepareXMLHttpRequest();
+          if (req == null) {
+            alert('XMLHttpRequest is not supported');
+            return;
+          }
+          req.onreadystatechange = function(){
+            if(req.readyState == 4) {
+              if(req.status == 200) {
+                redraw();
+              }else{
+                alert(req.response);
+              }
+            }
+          };
+          req.open("POST", url, true);
+          let data = {id: ansId};
+          req.setRequestHeader("Content-Type" , "text/plain");
+          req.send(JSON.stringify(data));
+        };
+      }
+
+      let editWin = null;
+      function editAnswer(ansId) {
+        return function() {
+          editWin = window.open('./edit_answer.html?ansId=' + ansId + '&d=' + Date.now(), 'editAnswer', 'width=480,height=150');
+        };
+      }
+      
+      function formatFigure(num) {
+        num += "";
+        if (num.length === 1) {
+          num = "0" + num;
+        }
+        return num;     
+      }
+      
+      function prepareXMLHttpRequest() {
+        if (window.XMLHttpRequest) {
+          return new XMLHttpRequest();
+        } else if (window.ActiveXObject) {
+          return new ActiveXObject("Microsoft.XMLHTTP");
+        }
+        return null;
+      }
+
+      function getGraphData(userId) {
+        let selectUsers = document.getElementById('users');
+        let idxUser = selectUsers.selectedIndex;
+        let userName = selectUsers.options[idxUser].innerText;
+        document.getElementById('userHistory').innerText = userName + 'さんのこれまでの成績';
+
+        var url = './getgraphdata?userId='+ userId + 'd=' + Date.now();
+
+        let req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+
+        req.onreadystatechange = function(){
+          if(req.readyState == 4 && req.status == 200) {
+            obj = JSON.parse(req.response);
+            if(isMobile) document.getElementById('graphContainer').style.width = '98%';
+            drawGraph(obj);
+          }else if(req.readyState == 4 && req.status != 200){
+          }
+        };
+        req.open("GET", url, true);
+        req.setRequestHeader("Content-Type" , "application/json");
+        req.send();
+      }
+
+      function drawGraph(obj) {
+        if(!isMobile && !isFirefox) {
+          document.getElementById('zoomRange').style.display = 'block';
+          document.getElementById('graphContainer').style.marginTop = '0px';
+        }
+        config = {
+          type: 'line',
+          data:
+          {
+            labels:[],
+            datasets:
+            [
+              {
+                fill: false,
+                backgroundColor: '#DB514E',
+                borderWidth: 3,
+                borderColor: 'rgba(201,60,58,0.8)',
+                pointBorderColor: '#fff',
+                pointBackgroundColor: 'rgba(201,60,58,0.8)',
+                pointBorderWidth: 2,
+                pointRadius:8,
+                pointHoverRadius: 12,
+                pointHoverBackgroundColor: '#9A1B19',
+                pointHoverBorderColor: '#fff',
+                pointHoverBorderWidth: 2,
+                tension: 0
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            animation: false,
+            responsiveAnimationDuration: 0,
+            legend: {
+              display: false
+            },
+            scales: {
+              xAxes: [{
+                display: true,
+                scaleLabel: {
+                  display: false,
+                  labelString: 'お題',
+                  fontFamily: 'monospace',
+                  fontSize: 14
+                },
+                ticks: {
+                  display: false, // 無い方がいいか？
+                  autoSkip: false,
+                  fontSize: 11,
+                  callback: function(value){
+                    return value+'';
+                  }
+                },
+                stacked: false,
+                gridLines: {
+                  display: true
+                }
+              }],
+              yAxes: [{
+                display: true,
+                scaleLabel: {
+                  display: false,
+                  labelString: '順位',
+                  fontFamily: 'monospace',
+                  fontSize: 14
+                },
+                ticks: {
+                  reverse: true,
+                  fontSize: 16,
+                  fontStyle: 'bold',
+                  min: 1,
+                  max: 10,
+                  stepSize:1,
+                  callback: function(value){
+                    if(value > 9) return '選外';
+                    return value+'位';
+                  }
+                },
+                gridLines: {
+                  display: true
+                }
+              }]
+            },
+            tooltips: {
+              bodyFontSize: 16,
+              callbacks: {
+                label: function(tooltipItem, data) {
+                  let label = '';
+                  if(tooltipItem.yLabel < 10) {
+                    label += '\n【' + tooltipItem.yLabel + '位】\n' + config.data.datasets[tooltipItem.datasetIndex].bestAnswers[tooltipItem.index];
+                  }else if(tooltipItem.yLabel == 10){
+                    label += '【選外】';
+                  }else{
+                    label += '未確定';
+                  }
+                  return label;
+                }
+              }
+            }
+          }
+        };
+        config.data.datasets[0].label = myName + 'さんの結果';
+        let ranks = [];
+        let bests = [];
+
+        for(let i = 0; i < obj.length; i++) {
+          config.data.labels.push(obj[i].odai);
+        }
+        for(let i = 0; i < obj.length; i++) {
+          if(obj[i].best) {
+            ranks.push(obj[i].best.rank);
+            bests.push(obj[i].best.sentence);
+          }else{
+            ranks.push(10);
+            bests.push('');
+          }
+        }
+        config.data.datasets[0].data = ranks;
+        config.data.datasets[0].bestAnswers = bests;
+        document.getElementById('graphContainer').style.display = 'block';
+        let ctx = document.getElementById('stage').getContext('2d');
+        window.myLine = new Chart(ctx, config);
+      }
+
+      function changeGraphZoom(val) {
+        let elem = document.getElementById('stage');
+        // elem.style.zoom = val/100;
+        
+        let container = document.getElementById('graphContainer');
+        container.style.width = val + '%';
+
+        window.myLine.resize(false);
+        window.myLine.update();
+
+        /*
+        elem.style.MozTransform = 'scale(' + val/100 + ',' + val/100 + ')';
+        */
+
+        /*
+        if(!isFirefox) {
+          elem.style.zoom = val/100;
+        }else {
+          elem = document.getElementById('graphContainer');
+          elem.style.MozTransform = 'scale(' + val/100 + ')';
+          let sx = document.body.clientWidth * 1.0;
+          let sy = document.body.clientHeight * 1.0;
+          let a = val/100;
+          elem.style.position = 'relative';
+          elem.style.left = '-' + ((sx-sx*a)/2.0) + 'px';
+          elem.style.top = '-'+((sy-sy*a)/4.1)+'px';
+          elem.style.MozTransform = 'scale(' + a + ')';
+        }
+        */
+      }
+    </script>
+    <style>
+a:link {
+  color: blue;
+}
+a:visited {
+  color: blue;
+}
+a:hover {
+  color: #99F;
+}
+a:active {
+  color: #99F;
+}
+.under {
+  -moz-border-radius: 0px 0px 8px 8px; /* for Firefox */
+  -webkit-border-radius: 0px 0px 8px 8px; /* for Chrome */
+  border-radius: 0px 0px 8px 8px;
+}
+.over {
+  -moz-border-radius: 8px 8px 0px 0px; /* for Firefox */
+  -webkit-border-radius: 8px 8px 0px 0px; /* for Chrome */
+  border-radius: 8px 8px 0px 0px;
+}
+.adminBtn {
+  width:120px;
+  background-image: linear-gradient(0deg, #DEDEDE, #eaf6fd); /* グラデーション */
+  border: 1px solid #6c6c6c; /* 枠線 */
+  border-radius: 0.3em;      /* 角丸 */
+}
+table {
+  border: 1px solid #999;
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+table thead th,
+table tbody th,
+table tbody td {
+  padding: .6em 3em;
+  border-bottom: 1px solid #999;
+}
+table thead th {
+}
+table tbody th {
+}
+table thead th + th,
+table tbody td {
+  border-left: 1px solid #999;
+}
+table tbody tr:last-child th,
+table tbody tr:last-child td {
+  border-bottom: none;
+}
+    </style>
+  </head>
+  <body style="background-color:#EDF6FF;">
+    <div>
+      <span id="links">
+        <a href="./result">結果参照</a> | <a href="./answer">回答する</a> | <a href="./sendodai">お題投稿</a> | <a href="./editprofile">ユーザ情報変更</a> | <a href="./logout">ログアウト</a><br/>
+        <!-- <input type="button" class="adminBtn" value="お題選択" onclick="window.location.href='./admin?mode=selectOdai'"/> --><input type="button" class="adminBtn" value="回答評価" onclick="window.location.href='./admin?mode=eval'"/><input type="button" class="adminBtn" value="お題属性変更" onclick="window.location.href='./editodai'"/><input type="button" class="adminBtn" value="データ管理" onclick="window.open('./admin?mode=backup', 'manageData', 'width=480,height=320')"/><input type="button" class="adminBtn" value="パスワード再発行" onclick="window.open('./admin?mode=makepw', 'makepw', 'width=540,height=240')"/>
+      </span>
+    </div>
+    
+    <select id="users" onchange="changeUser()" style="margin-top:10px"></select><span>&nbsp;さんの結果</span>
+    <br/>
+    <select id="odais" onchange="getOdaiInfo()" style="margin-top:10px"></select><br/>
+    <span id="createdBy" style="color:#666;"></span>
+    <span id="info" style="color:#F66;"></span>
+    
+    <div id="result" style="margin-top:10px"></div>
+
+    <input id="zoomRange" type="range" value="50" min="10" max="100" oninput="changeGraphZoom(this.value)" onchange="changeGraphZoom(this.value)" style="margin-top:20px;margin-bottom:5px;display:none;width:200px;"/>
+    <div id="graphContainer" style="background-color:#FFF;border:1px solid;padding:5px;width:50%;display:none;margin-top:20px;">
+      <p id="userHistory" style="font-size:13px;font-weight:bold;white-space:nowrap;margin-top:0px;">ここまでの成績 </p>
+      <canvas id="stage" style="zoom:1.0;width:100%"></canvas>
+    </div>
+  </body>
+</html>

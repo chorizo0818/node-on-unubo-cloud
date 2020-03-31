@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <title>DB編集</title>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta http-equiv="Pragma" content="no-cache"><!-- 古い -->
+    <meta http-equiv="Cache-Control" content="no-store"><!-- 古い -->
+    <meta http-equiv="Expires" content="0"><!-- 古い -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script>
+      let users = [];
+      let query = {};
+      
+      let messagePos = 300;
+      let message;
+      let vel = 0.0;
+      let acc = 0.3;
+      let opacity = 1.0;
+      let timerId = 0;
+      let target = null;
+      let backupDate = null;
+      let backupSizeLimit = 1; // MB
+      
+      let initText = '';
+      let hasChanged = false;
+
+      if(location.hash) {
+        target = location.hash.substring(1);
+        document.title = target + 'データ編集';
+      }
+
+      if (location.search.length > 1) {
+        let m_Array = location.search.substring(1).split("&"); 
+        for (let key in m_Array) {
+          let q_Array = m_Array[key].split("=");
+          let name = q_Array[0];
+          query[name] = q_Array[1];
+        }
+        if(query.target) {
+          target = query.target;
+          document.title = target + 'データ編集';
+        }
+      }
+      
+      window.onload = function() {
+        document.getElementById('dl').addEventListener('click', function(){
+          let anchor = document.getElementById('download');
+          let value = document.getElementById('ta_data').value;
+          let href = 'data:application/octet-stream,' + encodeURIComponent(value);
+          anchor.setAttribute('href', href);
+          anchor.setAttribute('download', target + '_' + getNowYMD(new Date()) + '.json');
+          try{
+            anchor.click();
+          }catch(e){
+            alert(e + '別のブラウザでお試しください\n\n' + navigator.userAgent);
+          }
+        }, false);
+        read();
+
+        let domTextArea = document.getElementById("ta_data");
+        domTextArea.ondragover = function(event) {
+          event.stopPropagation();
+          event.preventDefault();
+        }
+
+        domTextArea.ondrop = function(event) {
+          event.stopPropagation();
+          event.preventDefault();
+          let filesArray = event.dataTransfer.files;
+          if(filesArray.length > 1) {
+            alert('一度に指定できるファイルは１つです。');
+            return;
+          }
+
+          let objFileReader = new FileReader();
+          objFileReader.onload = (function(f) {
+            return function(e) {
+              if(f.size > 1024*1024*1) {
+                alert('ファイルが大きすぎます。\n上限は ' + backupSizeLimit + ' MB です。\n\n入力ファイルサイズ：' + (f.size/1024/1024).toFixed(2) + ' MB');
+                return;
+              }
+              if(f.type && f.type != 'application/json') {
+                alert('バックアップファイルではありません。' + f.type);
+                return;
+              }
+              let splitExtention = f.name.split('.');
+              if(splitExtention.length != 2 || splitExtention[1] != 'json') {
+                alert('バックアップファイルではありません。/n読み込めるのはJSONのみです。');
+                return;
+              }else{
+                let targetAndDate = splitExtention[0].split('_');
+                if(targetAndDate.length != 2) {
+                  alert('バックアップファイルではありません。\nファイル名の形式が異なります。');
+                  return;
+                }else{
+                  target = targetAndDate[0];
+                  document.title = target + 'データ編集';
+                  let d = targetAndDate[1];
+                  if(d.length != 12) {
+                    alert('バックアップファイルではありません。\nファイル名の形式が異なります。');
+                    return;
+                  }else{
+                    try{
+                      if(d != parseInt(d)) {
+                        alert('バックアップファイルではありません。\nファイル名の形式が異なります。');
+                        return;
+                      }
+                    }catch(ex){
+                      alert('バックアップファイルではありません。\nファイル名の形式が異なります。');
+                      return;
+                    }
+                    /*
+                    // ファイル名の日付がタイムスタンプと違っていたら（必要ないか？）
+                    let ts = new Date(f.lastModified);
+                    if(Math.abs(d - getNowYMD(ts)) > 1) {
+                      alert('バックアップファイルではありません。\n日付が異なります。');
+                      return;
+                    }
+                    */
+                  }
+                  backupDate = [d.slice(0, 4), "/", d.slice(4, 6), "/", d.slice(6, 8), " ", d.slice(8, 10), ":", d.slice(10, 12)].join('');
+                }
+              }
+              document.getElementById('spantarget').innerText = '対象データ：' + target;
+              document.getElementById('spantarget').style.display = 'inline';
+              if(backupDate) {
+                document.getElementById('backupdate').innerText = ' [ ' + backupDate + ' バックアップ ]';
+                document.getElementById('backupdate').style.display = 'inline';
+              }
+              domTextArea.value = e.target.result;
+              initText = domTextArea.value;
+              checkJson(domTextArea.value);
+              domTextArea.scrollTo(0, 0);
+              location.hash = target;
+            };
+          })(filesArray[0]);
+          objFileReader.readAsText(filesArray[0]);
+        }
+      }
+      
+      document.onkeydown = tabCheck;
+
+      function getNowYMD(dt){
+        let year = dt.getFullYear();
+        let month = ('00' + (dt.getMonth()+1)).slice(-2);
+        let day = ('00' + dt.getDate()).slice(-2);
+        let hour = ('00' + dt.getHours()).slice(-2);
+        let minute = ('00' + dt.getMinutes()).slice(-2);
+        let result = year + '' + month + '' + day + '' + hour + '' + minute;
+        return result;
+      }
+      
+      function read() {
+        if(hasChanged) {
+          if(!confirm('変更は破棄されます。\nよろしいですか？')) return;
+        }
+        
+        if(!target) {
+          alert('set target');
+          return;
+        }
+        
+        let url_read = './crud?target=' + target + '&d=' + Date.now();
+
+        let req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+
+        req.onreadystatechange = function(){
+          if(req.readyState == 4 && req.status == 200) {
+            datas = JSON.parse(req.response);
+            // datas = eval('(' + req.response + ')');
+            let json = JSON.stringify(datas, null, '  ');
+            // checkJson(json);
+            document.getElementById('ta_data').value = json;
+            initText = json;
+            checkJson(json);
+
+            document.getElementById('spantarget').innerText = '対象データ：' + target;
+            document.getElementById('spantarget').style.display = 'inline';
+
+            let d = getNowYMD(new Date());
+            let getDate = [d.slice(0, 4), "/", d.slice(4, 6), "/", d.slice(6, 8), " ", d.slice(8, 10), ":", d.slice(10, 12)].join('');
+            document.getElementById('backupdate').innerText = ' [ ' + getDate + ' 取得 ]';
+            document.getElementById('backupdate').style.display = 'inline';
+            showMessage('読み込みました');
+            document.getElementById("ta_data").scrollTo(0, 0); // 最上段にスクロール（いるか？）
+          }else if(req.readyState == 4 && req.status != 200) {
+            showError('読み込み失敗しました');
+          }
+        };
+        req.open("GET", url_read, true);
+        req.setRequestHeader("Content-Type" , "application/json");
+        req.send();
+      }
+      
+      function update(sendData) {
+        let confirmExec = confirm('サーバ上のデータを更新します。\n\n対象は ' + target + ' です。\n\nこの操作は元に戻せません。\n実行前に「PCに保存」ボタンでバックアップを取ることを強くおすすめします。\n本当によろしいですか？');
+        if(!confirmExec) return;
+        
+        let url_update = './crud?target=' + target;
+        
+        sendData = document.getElementById('ta_data').value;
+        try{
+          sendData = JSON.stringify(JSON.parse(sendData));
+          // sendData = eval('(' + sendData + ')');
+        }catch(e){
+          alert(e);
+        }
+
+        req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+
+        req.onreadystatechange = function(){
+          if(req.readyState == 4 && req.status == 200) {
+            showMessage('更新しました');
+            // read();
+            // checkJson(sendData);
+            sendData = JSON.stringify(JSON.parse(sendData), null, '  ');
+            document.getElementById('ta_data').value = sendData;
+            initText = sendData;
+            checkJson(sendData);
+          }else if(req.readyState == 4 && req.status == 400) {
+            alert(req.response);
+          }
+        };
+        req.open("POST", url_update, true);
+        req.send(JSON.stringify(sendData));
+      }
+
+      function prepareXMLHttpRequest() {
+        if (window.XMLHttpRequest) {
+          return new XMLHttpRequest();
+        } else if (window.ActiveXObject) {
+          return new ActiveXObject("Microsoft.XMLHTTP");
+        }
+        return null;
+      }
+
+      function tabCheck(e){
+        var kcode;  //キーコードを格納する変数
+        var textarea = document.getElementById('ta_data');
+    
+        // id:text のテキストエリアにフォーカスが当たっていなければスキップ
+        // var focused = document.activeElement;
+        if(textarea != textarea.ownerDocument.activeElement) return;
+
+        //document.allはInternet Explorerでのみ使用可能
+        if (document.all) {
+          kcode = event.keyCode;
+        } else {
+          kcode = e.which;
+        }
+        switch (kcode){
+          case 9: // tab
+          // if(!textarea.hasFocus) return;
+          var sentence = textarea.value;
+          var len      = sentence.length;
+          var pos      = textarea.selectionStart;
+          var before   = sentence.substr(0, pos);
+          var word     = '  ';
+          var after    = sentence.substr(pos, len);
+          sentence = before + word + after;
+          textarea.value = sentence;
+          if (textarea.createTextRange) {
+            var range = textarea.createTextRange();
+            range.move('character', textarea.value.length);
+            range.select();
+          } else if (textarea.setSelectionRange) {
+            textarea.setSelectionRange(pos + word.length, pos + word.length);
+          }
+          return false;
+            break;
+        }
+      }
+
+      function checkJson(jsonStr) {
+        hasChanged = jsonStr != initText;
+        
+        let color = "#000";
+        document.getElementById('updatebtn').disabled = false;
+        document.getElementById('dl').disabled = false;
+        try{
+          // eval('(' + jsonStr + ')');
+          JSON.parse(jsonStr);
+        }catch(e) {
+          document.getElementById('updatebtn').disabled = true;
+          document.getElementById('dl').disabled = true;
+          color = "#F00";
+        }
+        document.getElementById('ta_data').style.color = color;
+      }
+
+      function showMessage(str) {
+        if(message) {
+          document.body.removeChild(message);
+          vel = 0.0;
+          opacity = 1.0;
+          clearTimeout(timerId);
+        }
+        opacity = 1.0;
+        message = document.createElement('p');
+        message.innerText = str;
+        message.style.whiteSpace = 'nowrap';
+        message.style.position = 'absolute';
+        message.style.top = 0;
+        message.style.left = messagePos + 'px';
+        message.style.fontSize = '40px';
+        message.style.color = 'rgba(191, 255, 191, 1.0)';
+        message.style.fontWeight = 'bold';
+        document.body.appendChild(message);
+        animate();
+      }
+
+      function showError(str) {
+        if(message) {
+          document.body.removeChild(message);
+          vel = 0.0;
+          opacity = 1.0;
+          clearTimeout(timerId);
+        }
+        opacity = 1.0;
+        message = document.createElement('p');
+        message.innerText = str;
+        message.style.whiteSpace = 'nowrap';
+        message.style.position = 'absolute';
+        message.style.top = 0;
+        message.style.left = messagePos + 'px';
+        message.style.fontSize = '40px';
+        message.style.color = 'rgba(255, 191, 191, 1.0)';
+        message.style.fontWeight = 'bold';
+        document.body.appendChild(message);
+        animateForError();
+      }
+
+      function animate() {
+        vel = vel + acc;
+        opacity -= 0.018;
+        message.style.color = 'rgba(191, 255, 191,'+ opacity + ')';
+        message.style.left = (parseInt(message.style.left.replace('px', '')) - vel) + 'px';
+        if(parseInt(message.style.left.replace('px', '')) > -100) {
+          timerId = setTimeout(animate, 30);
+        }else{
+          vel = 0.0;
+          document.body.removeChild(message);
+          message = null;
+        }
+      }
+
+      function animateForError() {
+        vel = vel + acc;
+        opacity -= 0.018;
+        message.style.color = 'rgba(255, 191, 191,'+ opacity + ')';
+        message.style.left = (parseInt(message.style.left.replace('px', '')) - vel) + 'px';
+        if(parseInt(message.style.left.replace('px', '')) > -100) {
+          timerId = setTimeout(animateForError, 30);
+        }else{
+          vel = 0.0;
+          document.body.removeChild(message);
+          message = null;
+        }
+      }
+    </script>
+    <style>
+html, body { height:100%; margin:0; }
+.editor {
+  box-sizing: border-box;
+  height: 100%;
+  margin:0px;
+}
+    </style>
+  </head>
+  <body style="background-color:#EDF6FF;">
+    <textarea id="ta_data" class="editor" style="margin-top:60px;width:100%;height:85%;font-size:13px;" oninput="checkJson(this.value)"></textarea>
+    <div style="position:fixed;left:0px;top:0px;width:100%;height:30px;background-color:#EDF6FF;">
+      <input type="button" id="updatebtn" value="データ更新" onclick="update()"/>
+      <input type="button" id="dl" value="PCに保存"/>
+      <input type="button" id="reset" value="リロード" onclick="read()"/>
+    </div>
+    <div style="position:fixed;left:0px;top:30px;width:100%;height:30px;background-color:#EDF6FF;">
+      <span id="spantarget" style="font-size:15px;font-weight:bold;display:none;"></span>
+      <span id="backupdate" style="font-size:13px;display:none;"></span>
+      <a id="download" href="#" download="test.json" style="display:none;">DL</a>
+    </div>
+  </body>
+</html>

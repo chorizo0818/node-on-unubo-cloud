@@ -1,0 +1,1236 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <title>大喜利のやつ</title>
+    <meta http-equiv="Content-Style-Type" content="text/css">
+    <meta http-equiv="Content-Script-Type" content="text/javascript">
+    <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no">
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta http-equiv="Pragma" content="no-cache"><!-- 古い -->
+    <meta http-equiv="Cache-Control" content="no-store"><!-- 古い -->
+    <meta http-equiv="Expires" content="0"><!-- 古い -->
+    <script src="Chart.js"></script>
+    <script>
+      let myName;
+      let myId;
+      let targetOdai;
+      let odaiText;
+      let dispWin = null;
+      let timerId = 0;
+      let isOpen = false;
+      let resultLimit = 10;
+      
+      let messagePos = 200;
+      let message;
+      let vel = 0.0;
+      let acc = 1.0;
+      
+      let isMobile = false;
+
+      let dialog = null;
+      let dlg_yes = null;
+      let dlg_no = null;
+      
+      let userready = false;
+      let odaiready = false;
+
+      let currentUrl = undefined;
+      let videoEditedBy = undefined;
+      let videoEditedAt = undefined;
+
+      let lockedImage = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAUCAYAAACEYr13AAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAXEQAAFxEByibzPwAAABh0RVh0U29mdHdhcmUAcGFpbnQubmV0IDQuMS4xYyqcSwAAAb9JREFUOE9jwALEGBkZmxQUFM7r6el91tXV/SQpKXkKKF4FxIJgFXiAP1DD+/z8/P/19fUoODU19b+8vPwLoBoniFJM4OPk5PQHXSMyrq2t/Q901Q+gWluIFgQQ0NHReQ1TmJOT8x/okr98fHzXhISEbpqbm/8rLS0Fy9XU1PwHeuk+UA8HRCsQMDExlYE0gRRkZmb+5+DgOAcUVoPIgoGBiIjIDZghoaGh/4FiiRApIJCTkzsIs11ZWfkLUEgKIoMC1CwtLX+B1FRXV/9nYWFZCxVncAU6/z1IAuQ8oGsuAsXisGEJCYm7MIuALnoIFHNj0NDQ+JWdnQ0WrKur+5+QkIATJyYmgtWBMDRW/jKYmZnhDXl8WFNT8z9OA/Ly8v4bGhr+NzEx+V9UVIQhD8J4DRATEwOFNBgrKipiyIMwTgNACQYYynADgOkBRR6G8brAwsICboCzszOGPAjjNQCEBQQE/qurq2OVA2GCBggKCoIVYZMDYdobAEzW/4EZCascCIMNMDIy+o5Nkhispqb2m4Gfn387roSCD+fm5oJy7W5gLDHIcnFxHQA696+Kisp/YjBQ7T92dvZDDAwMcgAPITCybwqjeAAAAABJRU5ErkJggg==';
+      let unlockedImage = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAUCAYAAACEYr13AAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAXEQAAFxEByibzPwAAABh0RVh0U29mdHdhcmUAcGFpbnQubmV0IDQuMS4xYyqcSwAAAihJREFUOE9jwAJkWJmZ26205C6EO+h+jnY2+ORqrHKBm521HSgnC1GCGyS5m6p+XVsf9f/0tMz/V+bk/b+9qOj/w2Vl/y/Pzf+f5W/xlZWJKQWqFgMkJ3sY/9/ZHv//YF/q/yMT0v4vqQz9v7Im4v+1eQX/n62u/P96fc3/OSVB/4GGpEH1wIGsjbb81w2N0WADCoOt//Nzsx8EilcAcSU3J9uhsnC7/y/XVf9/u6H2v5uJ6leguAhIIww0d6e5/wcZUBxq/R/IL4MIo4DSYDud/xpyoi+B7CogZgaLgoAwH9eh5VVhYANUpISvAIUYITIYwBWIuSBMJKAoIXgDZoC0CN9GqDDRwF5BXOAZwgDe00CxMCKxAwPQxl+NcU7/YQZMyfX9Py3P7/9cYGgvqQz7v6o28v86oPimlrj/2zoS/u/qSvq/DxhLhyam/w+x1/3LoCwl9GdecSDcAFg0oqcDWDR+2FT//+v2pv+/drf+zwm0+o/TgJkF/v/NNGT+2+oq/N/SGkeaAXu7k/7zcrKDohOM5cQESDeAi4MVbgAwnEj3wqRsn/9srMz/pYCa1zZEk24AKBCFeDn/g1IfWYFIPwOAyfgXLgMO9Kb8Pzs9G6cBmf4WfxmAAXWkPckVqwH4EtIbYLbWUZQ4AYwlBhVudrZjwETz11ZX/r+DvuJ/Z0NlYJ5X+e9ppvbfx0Ljv5+l5n9/a63/gTbaYC8B8T8lSaFjDAwMqgCOezxq2zNgewAAAABJRU5ErkJggg==';
+
+      let allowAfterClosed = false;
+      let isFirefox = (navigator.userAgent.indexOf('Firefox') != -1);
+
+      let answers = null;
+
+      function showMessage(str) {
+        if(message) {
+          document.body.removeChild(message);
+          vel = 0.0;
+          clearTimeout(timerId);
+        }
+        message = document.createElement('p');
+        message.style.whiteSpace = 'nowrap';
+        message.innerText = str;
+        message.style.position = 'fixed';
+        message.style.top = '50px';
+        message.style.left = messagePos + 'px';
+        message.style.fontSize = '50px';
+        message.style.color = '#F66';
+        message.style.fontWeight = 'bold';
+        document.body.appendChild(message);
+        animate();
+      }
+      
+      function animate() {
+        vel = vel + acc;
+        message.style.left = (parseInt(message.style.left.replace('px', '')) - vel) + 'px';
+        if(parseInt(message.style.left.replace('px', '')) > -400) {
+          timerId = setTimeout(animate, 30);
+        }else{
+          vel = 0.0;
+          document.body.removeChild(message);
+          message = null;
+        }
+      }
+
+      addKeyEvent();
+
+      window.onload = function() {
+        dialog = document.getElementById('dialog');
+        dlg_yes = document.getElementById('dlg_yes');
+        dlg_no = document.getElementById('dlg_no');
+
+        if (navigator.userAgent.indexOf('iPhone') != -1 || navigator.userAgent.indexOf('iPad') != -1 || navigator.userAgent.indexOf('Android') > 0 || navigator.userAgent.indexOf('WP') != -1) {
+          document.body.style.margin = '10px 2px';
+          isMobile = true;
+          document.getElementById('odais').style.width = '100%';
+          // document.getElementById('previewbtn').style.display = 'none';
+          document.getElementById('rubyBtn').style.display = 'inline';
+          if(navigator.userAgent.indexOf('iPhone') != -1) {
+            document.getElementById('helpExpander').style.width = document.getElementById('helpContainer').style.width = document.getElementById('spContainer').style.width = document.getElementById('spExpander').style.width = '365px';
+          }
+          document.getElementById('tainput').style.width = (parseInt(document.getElementById('spContainer').style.width.replace('px', '')) - 3) + 'px';
+        }else if(navigator.userAgent.indexOf('Chrome') != -1){
+          document.getElementById('tainput').style.width = (840*0.6 - 5) + 'px';
+        }
+
+        let tainput = document.getElementById('tainput');
+        tainput.addEventListener('focus', removeKeyEvent);
+        tainput.addEventListener('blur', addKeyEvent);
+        tainput.value = '最初の表示がきて[区切]\n次の表示ときて、[区切]改行入れずに最後の表示';
+      };
+
+      document.onselectionchange = changeRubyVisibility;
+
+      if (navigator.userAgent.indexOf('iPhone') != -1 || navigator.userAgent.indexOf('iPad') != -1 || navigator.userAgent.indexOf('Android') > 0) {
+        window.onorientationchange = function(event) {
+        }
+      }
+
+      function kd(e) {
+        let kcode;
+        if (document.all) {
+          kcode = e.keyCode;
+        } else {
+          kcode = e.which;
+        }
+        
+        if(kcode == 17){
+          isPressedCtrl = true;
+        }else if(kcode == 88 && isPressedCtrl) {
+          let odais = document.getElementById('odais'); // この行いらない？
+          preview(undefined, true);
+          return false;
+        }
+      }
+
+      function ku(e) {
+        let kcode;
+        if (document.all) {
+          kcode = e.keyCode;
+        } else {
+          kcode = e.which;
+        }
+        if(kcode == 17){
+          isPressedCtrl = false;
+        }
+      }
+
+      function addKeyEvent() {
+        document.addEventListener('keydown', kd);
+        document.addEventListener('keyup', ku);
+      }
+
+      function removeKeyEvent() {
+        document.removeEventListener('keydown', kd, false);
+        document.removeEventListener('keyup', ku, false);
+      }
+
+      function getConfig() {
+        var url = './allowafterclosed?d=' + Date.now();
+        let req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+        req.onreadystatechange = function(){
+          if(req.readyState == 4) {
+            try{
+              allowAfterClosed = eval(req.response);
+            }catch(e){
+            }
+          }
+        };
+        req.open("GET", url, true);
+        req.setRequestHeader("Content-Type" , "application/json");
+        req.send();
+      }
+
+      function getUser() {
+        var url = './getuser?d=' + Date.now();
+
+        let req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+
+        req.onreadystatechange = function(){
+          if(req.readyState == 4 && req.status == 200) {
+            myName = JSON.parse(req.response).name;
+            myId = JSON.parse(req.response).id;
+            overTwo(myId);
+            document.getElementById('welcome').innerText = 'ようこそ' + myName + 'さん、回答しましょう';
+            if(isMobile) document.getElementById('welcome').style.fontSize = '14px';
+            userready = true;
+          }else if(req.readyState == 4 && req.status != 200){
+            document.getElementById('welcome').innerText = 'ログインし直してください';
+            let inputs = document.getElementsByTagName('input');
+            for(let key in inputs) {
+              inputs[key].disabled = true;
+            }
+          }
+        };
+        req.open("GET", url, true);
+        req.setRequestHeader("Content-Type" , "application/json");
+        req.send();
+      }
+
+      function setAnswer(sentence) {
+        document.getElementById('tainput').value = sentence;
+      }
+
+      function getOdais() {
+        var url = './getodais?d=' + Date.now();
+        let odais = document.getElementById('odais');
+
+        let req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+
+        req.onreadystatechange = function(){
+          if(req.readyState == 4 && req.status == 200) {
+            odaiready = true;
+            if(!req.response) return;
+            let obj = JSON.parse(req.response);
+            if(!obj || !obj.length) {
+              let opt = document.createElement('option');
+              opt.innerText = 'No Entry';
+              odais.style.fontSize = '16px';
+              odais.style.fontWeight = 'bold';
+              odais.appendChild(opt);
+              return;
+            }
+            targetOdai = obj[0].id;
+            for(let key in obj) {
+              let opt = document.createElement('option');
+              opt.value = obj[key].id;
+              opt.innerText = obj[key].sentence;
+              opt.id = obj[key].id;
+              if(opt.id == window.location.hash.substring(1)) opt.selected = true;
+              opt.createdBy = obj[key].user_id;
+              opt.releasedDate = obj[key].date_release;
+              opt.closedDate = obj[key].date_close;
+              opt.rest = obj[key].rest;
+              opt.user = obj[key].user;
+              opt.videoUrl = obj[key].videoUrl;
+              opt.videoEditedBy = obj[key].videoEditedBy;
+              opt.videoEditedAt = obj[key].videoEditedAt;
+              odais.appendChild(opt);
+            }
+            getOdaiInfo(odais);
+          }else if(req.readyState == 4 && req.status != 200){
+            let opt = document.createElement('option');
+            opt.innerText = 'no entry';
+            odais.appendChild(opt);
+          }
+        };
+        req.open("GET", url, true);
+        req.setRequestHeader("Content-Type" , "application/json");
+        req.send();
+      }
+      
+      function getOdaiInfo(obj) {
+        let resultContainer = document.getElementById('result');
+        // 子要素を全て削除
+        while (resultContainer.firstChild) resultContainer.removeChild(resultContainer.firstChild);
+        let pInfo = document.createElement('p');
+        pInfo.innerText = 'Loading...';
+        resultContainer.appendChild(pInfo);
+
+        let idx = obj.selectedIndex;
+        odaiText = obj.options[idx].innerText;
+        let userId = obj.options[idx].createdBy;
+        let releasedDate = obj.options[idx].releasedDate;
+        let closedDate = obj.options[idx].closedDate;
+        let rest = obj.options[idx].rest;
+        let videoUrl = currentUrl = obj.options[idx].videoUrl;
+        videoEditedBy = obj.options[idx].videoEditedBy;
+        videoEditedAt = obj.options[idx].videoEditedAt;
+        targetOdai = obj.options[idx].id;
+
+        /*
+        try{
+          window.location.hash = ''+obj.options[idx].id;
+        }catch(e){
+        }
+        */
+
+        let user = obj.options[idx].user;
+        let location = user.location;
+        if(location) {
+          location = ' ' + location;
+        }else{
+          location = '';
+        }
+        let generation = user.generation;
+        if(generation) {
+          generation = ' ' + generation;
+        }else{
+          generation = '';
+        }
+        let gender = user.gender;
+        if(gender) {
+          gender = ' ' + gender;
+        }else{
+          gender = '';
+        }
+        let createdBy = location + generation + gender + ' ' + user.name;
+        document.getElementById('createdBy').innerText = '作成者：' + createdBy;
+        if(isMobile) {
+          document.getElementById('createdBy').style.fontSize = '13px';
+          document.getElementById('createdBy').appendChild(document.createElement('br'));
+        }
+        if(closedDate) {
+          let datestr = null;
+          if(closedDate > Date.now()) {
+            isOpen = true;
+            closedDate = new Date(closedDate);
+            datestr = closedDate.getFullYear() + '/' + formatFigure(closedDate.getMonth() + 1) + '/' + formatFigure(closedDate.getDate()) + ' ' + formatFigure(closedDate.getHours()) + '時' + formatFigure(closedDate.getMinutes()) + '分' + ' 締め切り予定';
+          } else {
+            isOpen = false;
+            closedDate = new Date(closedDate);
+            datestr = closedDate.getFullYear() + '/' + formatFigure(closedDate.getMonth() + 1) + '/' + formatFigure(closedDate.getDate()) + ' ' + formatFigure(closedDate.getHours()) + '時' + formatFigure(closedDate.getMinutes()) + '分' + ' 募集終了';
+          }
+          document.getElementById('info').innerText = datestr;
+        }else{
+          isOpen = true;
+          document.getElementById('info').innerText = '回答受付中';
+        }
+        if(videoUrl) {
+          document.getElementById('urlContainer').style.display = 'inline';
+          document.getElementById('anchorUrl').href = document.getElementById('anchorUrl').innerText = videoUrl;
+          // if(videoEditedBy) document.getElementById('spanUrl').innerText = 'edited by：' + videoEditedBy;
+        }else{
+          document.getElementById('urlContainer').style.display = 'none';
+          document.getElementById('anchorUrl').href = document.getElementById('anchorUrl').innerText = '';
+        }
+        document.getElementById('editUrl').onclick = function() {
+          checkUrl(targetOdai);
+        };
+
+        if(isMobile) {
+          document.getElementById('info').style.fontSize = '13px';
+        }
+        redraw();
+      }
+
+      function redraw() {
+        if(!userready || !odaiready) return;
+        
+        let selectOdais = document.getElementById('odais');
+        if(isMobile) selectOdais.style.width = '100%';
+        let idxOdai = selectOdais.selectedIndex;
+        let odaiId = selectOdais.options[idxOdai].id;
+        document.getElementById('sp_odai').innerText = selectOdais.options[idxOdai].innerText;
+
+        var url = './getuseranswers?userId=' + myId + '&odaiId=' + odaiId + '&d=' + Date.now();
+        //var results = document.getElementById('results');
+
+        let req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+
+        req.onreadystatechange = function(){
+          if(req.readyState == 4 && req.status == 200) {
+            answers = JSON.parse(req.response);
+            if(!answers || !answers.length) {
+              let resultContainer = document.getElementById('result');
+              while (resultContainer.firstChild) resultContainer.removeChild(resultContainer.firstChild);
+              return;
+            }
+
+            let numOfAns = 0;
+            if(answers.length) numOfAns = answers.length;
+
+            let hasVoted = false;
+            for(let key in answers) {
+              if(answers[key].voted) {
+                hasVoted = true;
+                break;
+              }
+            }
+
+            // ここで document.getElementById('result') で取得した DIV に結果を表示
+            let resultContainer = document.getElementById('result');
+            while (resultContainer.firstChild) resultContainer.removeChild(resultContainer.firstChild);
+
+            let table = document.createElement('table');
+            table.style.borderSpacing = '0px';
+            let rowColors = ['#E6E9FF', '#FFE9E6'];
+            let lockedNum = 0;
+            let unlockedNum = 0;
+            for(let key in answers) {
+              let ans = answers[key];
+              let tr = document.createElement('tr');
+              tr.id = 'tr_' + ans.id;
+              tr.style.backgroundColor = rowColors[key%2];
+              let tdRank = document.createElement('td');
+              tdRank.style.textAlign = 'center';
+              if(ans.rank) {
+                let spanRank = document.createElement('span');
+                spanRank.innerText = ans.rank + '位';
+                spanRank.style.whiteSpace = 'nowrap';
+                spanRank.style.width = '30px';
+                spanRank.style.fontWeight = 'bold';
+                spanRank.style.fontSize = '16px';
+                tdRank.appendChild(spanRank);
+              }
+              if(ans.voted || ans.voted == 0){
+                tdRank.appendChild(document.createElement('br'));
+                let spanVote = document.createElement('span');
+                spanVote.innerText = '　[' + ans.voted + '%]　';
+                spanVote.style.width = '30px';
+                spanVote.style.whiteSpace = 'nowrap';
+                spanVote.style.fontSize = '13px';
+                tdRank.appendChild(spanVote);
+              }
+              let tdSentence = document.createElement('td');
+              tdSentence.style.fontWeight = 'bold';
+              tdSentence.style.fontSize = '14px';
+              if(hasVoted) {
+                tdSentence.style.width = '350px';
+              }else{
+                tdSentence.style.width = '380px';
+              }
+              tdSentence.id = 'ans' + ans.id;
+              tdSentence.innerText = ans.sentence;
+              tdSentence.ondblclick = function() {
+                preview(this.innerText, true);
+                getSelection().empty();
+              }
+              tdSentence.style.padding = '5px 10px';
+              let tdInfo = document.createElement('td');
+              tdInfo.style.fontSize = '11px';
+              tdInfo.style.padding = '5px 10px';
+              let ansDate = new Date(ans.date);
+              let datestr = ansDate.getFullYear() + '/' + formatFigure(ansDate.getMonth() + 1) + '/' + formatFigure(ansDate.getDate()) + '\n' + formatFigure(ansDate.getHours()) + '時' + formatFigure(ansDate.getMinutes()) + '分';
+              if(!isMobile) tdInfo.innerText = datestr;
+              tr.appendChild(tdRank);
+              tr.appendChild(tdSentence);
+              tr.appendChild(tdInfo);
+
+              let tdEdit = document.createElement('td');
+              tdEdit.style.padding = '5px 10px';
+              let btnEdit = document.createElement('input');
+              btnEdit.type = 'button';
+              // btnEdit.style.fontWeight = 'bold';
+              btnEdit.style.color = '#063';
+              btnEdit.value = '編集';
+              btnEdit.className = 'over';
+              btnEdit.addEventListener('click', editAnswer(ans));
+              tdEdit.appendChild(btnEdit);
+              tdEdit.appendChild(document.createElement('br'));
+              let btnDel = document.createElement('input');
+              btnDel.type = 'button';
+              // btnDel.style.fontWeight = 'bold';
+              btnDel.style.color = '#C00';
+              btnDel.value = '削除';
+              btnDel.className = 'under';
+              btnDel.addEventListener('click', confDel(ans.id));
+              tdEdit.appendChild(btnDel);
+
+              let imLock = document.createElement('img');
+              if(ans.private) {
+                lockedNum++;
+//                tr.style.backgroundColor = '#666';
+//                tr.style.color = '#FFF';
+                if(navigator.userAgent.indexOf('iPhone') == -1 && navigator.userAgent.indexOf('iPad') == -1) {
+                  tr.style.filter = 'brightness(75%)';
+                }else{
+                  tr.style.backgroundColor = '#BBB';
+                }
+                imLock.src = lockedImage;
+                imLock.style.filter = 'drop-shadow(0px 0px 1px #FFFFFF)';
+                imLock.title = '公開する';
+                imLock.className = 'private';
+              }else{
+                unlockedNum++;
+                imLock.src = unlockedImage;
+                imLock.title = 'プライベートにする';
+                imLock.className = 'public';
+              }
+              imLock.style.width = '16px';
+              imLock.style.height = '20px';
+              imLock.style.display = 'block';
+              imLock.style.cursor = 'pointer';
+              imLock.style.margin = '15px 0px 10px 5px';
+              imLock.onclick = function() {
+                togglePrivate(this, ans.id, ans.private, tr, rowColors[key%2]);
+              }
+              tdEdit.appendChild(imLock);
+
+              tr.appendChild(tdEdit);
+
+              if(key != answers.length - 1) {
+                tdRank.style.borderBottom = '1px dotted #999';
+                tdSentence.style.borderBottom = '1px dotted #999';
+                tdInfo.style.borderBottom = '1px dotted #999';
+                tdEdit.style.borderBottom = '1px dotted #999';
+              }
+
+              table.appendChild(tr);
+            }
+            let resultHeader = document.createElement('p');
+            resultHeader.id = 'resultHeader';
+            resultHeader.style.fontSize = '14px';
+            resultHeader.style.fontWeight = 'bold';
+            resultHeader.style.marginBottom = '3px';
+            resultHeader.innerHTML = '送信済みの回答';
+            if(numOfAns) resultHeader.innerHTML += '：' + numOfAns + '件';
+            if(lockedNum) resultHeader.innerHTML += '<span style="font-size:12px;font-weight:normal;">（公開' + unlockedNum + '件／プライベート' + lockedNum + '件）</span>';
+            resultContainer.appendChild(resultHeader);
+            resultContainer.appendChild(table);
+
+          }
+        };
+        req.open("GET", url, true);
+        req.setRequestHeader("Content-Type" , "application/json");
+        req.send();
+      }
+
+      function updateAnswer(id, sentence) {
+        for(let i in answers) {
+          let ans = answers[i];
+          if(ans.id == id) {
+            answers[i].sentence = sentence;
+          }
+        }
+      }
+
+      let editWin = null;
+
+      function editAnswer(ans) {
+        let ansId = ans.id;
+        let sentence = ans.sentence;
+        let locked = ans.private;
+        return function() {
+          let w = 400;
+          let h = 380;
+          if(navigator.userAgent.indexOf('Chrome') != -1){
+            w = 510;
+            if(navigator.userAgent.indexOf('OPR\/') != -1) {
+              w = 525;
+              h = 450;
+            }
+          }
+          editWin = window.open('./edit_answer.html?ansId=' + ansId + '&sentence=' + encodeURIComponent(sentence) + '&odaiText=' + encodeURIComponent(odaiText) + '&private=' + locked + '&d=' + Date.now(), '_blank', 'width=' + w + ',height=' + h);
+        };
+      }
+
+      function togglePrivate(elem, id, isPrivate, tr, color) {
+        let url = './setprivate';
+
+        let req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+
+        req.onreadystatechange = function(){
+          if(req.readyState == 4 && req.status == 200) {
+            let result = eval(req.response);
+            redraw();
+          }else if(req.readyState == 4 && req.status != 200) {
+            alert(req.response);
+            if(isPrivate == true) {
+              if(navigator.userAgent.indexOf('iPhone') == -1 && navigator.userAgent.indexOf('iPad') == -1) {
+                tr.style.filter = 'brightness(75%)';
+              }else{
+                tr.style.backgroundColor = '#BBB';
+              }
+              elem.src = lockedImage;
+              elem.style.filter = 'drop-shadow(0px 0px 1px #FFFFFF)';
+              elem.title = '公開する';
+              elem.className = 'private';
+            }else{
+              if(navigator.userAgent.indexOf('iPhone') == -1 && navigator.userAgent.indexOf('iPad') == -1) {
+                tr.style.filter = 'brightness(100%)';
+              }else{
+                tr.style.backgroundColor = color;
+              }
+              elem.src = unlockedImage;
+              elem.title = 'プライベートにする';
+              elem.className = 'public';
+            }
+          }
+        };
+
+        req.onerror = function() {
+          alert('エラーが発生しました');
+        }
+
+        req.ontimeout = function() {
+          alert('接続できませんでした');
+        }
+
+        // redraw の前に見切り発車する
+        if(!isPrivate) {
+          if(navigator.userAgent.indexOf('iPhone') == -1 && navigator.userAgent.indexOf('iPad') == -1) {
+            tr.style.filter = 'brightness(75%)';
+          }else{
+            tr.style.backgroundColor = '#BBB';
+          }
+          elem.src = lockedImage;
+          elem.style.filter = 'drop-shadow(0px 0px 1px #FFFFFF)';
+          elem.title = '公開する';
+          elem.className = 'private';
+        }else{
+          if(navigator.userAgent.indexOf('iPhone') == -1 && navigator.userAgent.indexOf('iPad') == -1) {
+            tr.style.filter = 'brightness(100%)';
+          }else{
+            tr.style.backgroundColor = color;
+          }
+          elem.src = unlockedImage;
+          elem.title = 'プライベートにする';
+          elem.className = 'public';
+        }
+
+        req.open("POST", url, true);
+        req.send(JSON.stringify({targetId:id}));
+      }
+
+      function checkUrl(id) {
+        let url = './getodais?targetId=' + id + '&d=' + Date.now();
+        let req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+
+        req.onreadystatechange = function(){
+          if(req.readyState == 4 && req.status == 200) {
+            let odai = JSON.parse(req.response);
+            videoEditedBy = odai.videoEditedBy;
+            videoEditedAt = odai.videoEditedAt;
+            currentUrl = odai.videoUrl;
+
+            let obj = document.getElementById('odais');
+            for(let i in obj.options) {
+              if(obj.options[i].id == id) {
+                obj.options[i].videoUrl = currentUrl;
+                obj.options[i].videoEditedBy = videoEditedBy;
+                obj.options[i].videoEditedAt = videoEditedAt;
+                break;
+              }
+            }
+
+            setVideoUrl(id);
+          }else if(req.readyState == 4 && req.status != 200) {
+            alert(req.response);
+          }
+        };
+        req.open("GET", url, true);
+        req.send();
+      }
+
+      function setVideoUrl(id) {
+        let dateStr = '';
+        if(videoEditedAt) {
+          let editedAt = new Date(parseInt(videoEditedAt));
+          dateStr = editedAt.getFullYear() + '/' + formatFigure(editedAt.getMonth() + 1) + '/' + formatFigure(editedAt.getDate()) + ' ' + formatFigure(editedAt.getHours()) + '時' + formatFigure(editedAt.getMinutes()) + '分';
+        }
+        let message = '動画のURLを入力してください';
+        if(videoEditedBy) {
+          message += '\n\n最終更新：' + videoEditedBy;
+          if(videoEditedAt) message += ' [' + dateStr + ']';
+        }
+        let videoUrl = currentUrl? prompt(message, currentUrl): prompt(message);
+        if(videoUrl == null) return;
+        if(videoUrl == currentUrl) {
+          if(videoUrl) {
+            document.getElementById('urlContainer').style.display = 'inline';
+            document.getElementById('anchorUrl').href = document.getElementById('anchorUrl').innerText = videoUrl;
+          }else{
+            document.getElementById('urlContainer').style.display = 'none';
+            document.getElementById('anchorUrl').href = document.getElementById('anchorUrl').innerText = '';
+          }
+          return;
+        }
+
+        let url = './setvideourl';
+
+        let req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+
+        req.onreadystatechange = function(){
+          if(req.readyState == 4 && req.status == 200) {
+            if(videoUrl) {
+              document.getElementById('urlContainer').style.display = 'inline';
+              document.getElementById('anchorUrl').href = document.getElementById('anchorUrl').innerText = videoUrl;
+            }else{
+              document.getElementById('urlContainer').style.display = 'none';
+              document.getElementById('anchorUrl').href = document.getElementById('anchorUrl').innerText = '';
+            }
+            videoEditedAt = Date.now();
+            videoEditedBy = myName;
+            // document.getElementById('spanUrl').innerText = 'edited by：' + myName;
+            currentUrl = videoUrl;
+
+            let obj = document.getElementById('odais');
+            for(let i in obj.options) {
+              if(obj.options[i].id == id) {
+                obj.options[i].videoUrl = videoUrl;
+                obj.options[i].videoEditedBy = videoEditedBy;
+                obj.options[i].videoEditedAt = videoEditedAt;
+                break;
+              }
+            }
+          }else if(req.readyState == 4 && req.status != 200) {
+            alert(req.response);
+          }
+        };
+
+        req.open("POST", url, true);
+        req.send(JSON.stringify({targetId:id, videoUrl:videoUrl}));
+      }
+
+      function confDel(ansId) {
+        return function() {
+          var url = './getanswer?ansId=' + ansId +'&d=' + Date.now();
+          let req = prepareXMLHttpRequest();
+          if (req == null) {
+            alert('XMLHttpRequest is not supported');
+            return;
+          }
+          req.onreadystatechange = function(){
+            if(req.readyState == 4) {
+              if(req.status == 200) {
+                let answer = JSON.parse(req.response);
+                if(answer.editable) {
+                  delAnswer(ansId)();
+                }else{
+                  alert('この回答は削除できません。\n削除できるのは募集期間の回答だけです。');
+                }
+              }else{
+                alert(req.response);
+              }
+            }
+          };
+          req.open("GET", url, true);
+          req.setRequestHeader("Content-Type" , "text/plain");
+          req.send();
+        };
+      }
+
+      function delAnswer(ansId) {
+        return function() {
+          if(!confirm('削除しますか？')) return;
+          var url = './delete?d=' + Date.now();
+          let req = prepareXMLHttpRequest();
+          if (req == null) {
+            alert('XMLHttpRequest is not supported');
+            return;
+          }
+          req.onreadystatechange = function(){
+            if(req.readyState == 4) {
+              if(req.status == 200) {
+                redraw();
+              }else{
+                alert(req.response);
+              }
+            }
+          };
+          req.open("POST", url, true);
+          let data = {id: ansId};
+          req.setRequestHeader("Content-Type" , "text/plain");
+          req.send(JSON.stringify(data));
+        };
+      }
+
+      function addAns() {
+//        if(!targetOdai) {
+//          return;
+//        }
+        let ansContainer = document.getElementById('answers');
+        let anss = document.getElementsByClassName('ans');
+        let num = anss.length;
+        // alert(num);
+        let tainput = document.getElementById('tainput');
+
+        if(!tainput.value.replace(/\s+/g, '')) return;
+        let currentAns = tainput.value;
+        
+        let elemId = 0;
+        for(var i = 0; i <= num; i++) {
+          if(!document.getElementById('ans' + i)) {
+            elemId = i;
+            break;
+          }
+        }
+        let ans = document.createElement('div');
+        ans.innerText = currentAns;
+        ans.style.width = '400px';
+        if(isMobile) ans.style.width = '90%';
+        ans.style.height = '45px';
+        ans.style.overflow = 'auto';
+        ans.style.border = 'solid 1px black';
+        ans.style.backgroundColor = '#FFC';
+        ans.style.marginTop = '5px';
+        ans.style.fontSize = '13px';
+        ans.style.padding = '5px';
+        ans.style.display = 'inline-block';
+        ans.className = 'ans';
+        let removeBtn = document.createElement('input');
+        removeBtn.type = 'button';
+        removeBtn.style.position = 'relative';
+        removeBtn.style.width = '50px';
+        removeBtn.style.left = '-55px';
+        if(isMobile) removeBtn.style.left = '0px';
+        removeBtn.style.bottom = '8px';
+        if(isMobile) removeBtn.style.bottom = '20px';
+        removeBtn.value = '削除';
+        removeBtn.addEventListener('click', function() {
+          let target = document.getElementById('ans' + elemId);
+          target.parentNode.removeChild(target);
+        });
+        let p = document.createElement('div');
+        p.id = 'ans' + elemId;
+        p.className = 'ansdiv';
+        p.style.margin = '0px';
+        p.appendChild(ans);
+        p.appendChild(removeBtn);
+        ansContainer.appendChild(p);
+        
+        tainput.value = '';
+        tainput.focus();
+        document.getElementById('sp_answer').innerHTML = '';
+      }
+
+      function formatFigure(num) {
+        num += '';
+        if (num.length === 1) {
+          num = '0' + num;
+        }
+        return num;     
+      }
+
+      function preview(sentence, focus) {
+        let odai = 'ステップ表示テスト';
+        let ans = document.getElementById('tainput').value;
+        if(sentence) ans = sentence;
+        if(dispWin && !dispWin.closed) {
+          dispWin.show(odai, encodeURIComponent(ans));
+        }else{
+          let query = '';
+          if(odai) query += 'odai=' + encodeURIComponent(odai);
+          if(ans) query += '&answer=' + encodeURIComponent(ans);
+          dispWin = window.open('./step_display.html?' + query + '&d=' + Date.now(), 'disp', 'width=840,height=350');
+        }
+        if(focus) dispWin.focus();
+      }
+
+      function setNull() {
+        dispWin = null
+      }
+
+      function simplePreview(sentence, focus) {
+        let odai = 'ステップ表示テスト';
+        let ans = document.getElementById('tainput').value;
+        if(sentence) ans = sentence;
+      }
+
+      function prepareXMLHttpRequest() {
+        if (window.XMLHttpRequest) {
+          return new XMLHttpRequest();
+        } else if (window.ActiveXObject) {
+          return new ActiveXObject("Microsoft.XMLHTTP");
+        }
+        return null;
+      }
+
+      function movePage(select) {
+        location.href = select.options[select.selectedIndex].value;
+      }
+
+      function getGraphData(userId) {
+        document.getElementById('userHistory').innerHTML = '直近 ' + resultLimit + ' 回の成績&nbsp;&nbsp;<a href="/graph_outer" style="text-decoration:none; font-weight:normal; font-size:13px; color:#00F;">全部見る</a>';
+
+        var url = './getgraphdata?d=' + Date.now() + '&limit=' + resultLimit;
+
+        let req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+
+        req.onreadystatechange = function(){
+          if(req.readyState == 4 && req.status == 200) {
+            obj = JSON.parse(req.response);
+            if(isMobile) document.getElementById('graphContainer').style.width = '92%';
+            drawGraph(obj);
+          }else if(req.readyState == 4 && req.status != 200){
+          }
+        };
+        req.open("GET", url, true);
+        req.setRequestHeader("Content-Type" , "application/json");
+        req.send();
+      }
+
+      function overTwo(userId) {
+        let url = './overtwo';
+        let req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+        req.onreadystatechange = function(){
+          if(req.readyState == 4 && req.status == 200) {
+            if(eval(req.response) == true) {
+              getGraphData(userId);
+            }
+          }
+        }
+        req.open("GET", url, true);
+        req.setRequestHeader("Content-Type" , "application/json");
+        req.send();
+      }
+
+      function drawGraph(obj) {
+        if(!isMobile && !isFirefox) {
+          //document.getElementById('zoomRange').style.display = 'block';
+          //document.getElementById('graphContainer').style.marginTop = '0px';
+        }
+        config = {
+          type: 'line',
+          data:
+          {
+            labels:[],
+            datasets:
+            [
+              {
+                fill: false,
+                backgroundColor: '#DB514E',
+                borderWidth: 3,
+                borderColor: 'rgba(201,60,58,0.8)',
+                pointBorderColor: '#fff',
+                pointBackgroundColor: 'rgba(201,60,58,0.8)',
+                pointBorderWidth: 2,
+                pointRadius:8,
+                pointHoverRadius: 12,
+                pointHoverBackgroundColor: '#9A1B19',
+                pointHoverBorderColor: '#fff',
+                pointHoverBorderWidth: 2,
+                tension: 0
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            animation: false,
+            responsiveAnimationDuration: 0,
+            legend: {
+              display: false
+            },
+            scales: {
+              xAxes: [{
+                display: true,
+                scaleLabel: {
+                  display: false,
+                  labelString: 'お題',
+                  fontFamily: 'monospace',
+                  fontSize: 14
+                },
+                ticks: {
+                  display: false, // 無い方がいいか？
+                  autoSkip: false,
+                  fontSize: 11,
+                  callback: function(value){
+                    return value+'';
+                  }
+                },
+                stacked: false,
+                gridLines: {
+                  display: true
+                }
+              }],
+              yAxes: [{
+                display: true,
+                scaleLabel: {
+                  display: false,
+                  labelString: '順位',
+                  fontFamily: 'monospace',
+                  fontSize: 14
+                },
+                ticks: {
+                  reverse: true,
+                  fontSize: 12,
+                  fontStyle: 'bold',
+                  min: 1,
+                  max: 10,
+                  stepSize:1,
+                  callback: function(value){
+                    if(value > 9) return '選外';
+                    return value+'位';
+                  }
+                },
+                gridLines: {
+                  display: true
+                }
+              }]
+            },
+            layout: {             //レイアウト
+                padding: {        //余白設定 （responsive が true だと効かない）
+                    left: 0,
+                    right: 0,
+                    top: 0,
+                    bottom: 0
+                }
+            },
+            tooltips: {
+              bodyFontSize: 14,
+              callbacks: {
+                label: function(tooltipItem, data) {
+                  let label = '';
+                  if(tooltipItem.yLabel < 10) {
+                    label += '\n【' + tooltipItem.yLabel + '位】\n' + config.data.datasets[tooltipItem.datasetIndex].bestAnswers[tooltipItem.index];
+                  }else{
+                    label += '【選外】';
+                  }
+                  return label;
+                }
+              }
+            }
+          }
+        };
+        config.data.datasets[0].label = 'unko';
+        let ranks = [];
+        let bests = [];
+
+        for(let i = 0; i < obj.length; i++) {
+          config.data.labels.push(obj[i].odai);
+        }
+        for(let i = 0; i < obj.length; i++) {
+          if(obj[i].best) {
+            ranks.push(obj[i].best.rank);
+            bests.push(obj[i].best.sentence);
+          }else{
+            ranks.push(10);
+            bests.push('');
+          }
+        }
+        config.data.datasets[0].data = ranks;
+        config.data.datasets[0].bestAnswers = bests;
+        document.getElementById('graphContainer').style.display = 'block';
+        let ctx = document.getElementById('stage').getContext('2d');
+        if(!isMobile) ctx.canvas.height = '1px';
+        window.myLine = new Chart(ctx, config);
+      }
+
+      function changeGraphZoom(val) {
+        let elem = document.getElementById('stage');
+        // elem.style.zoom = val/100;
+        
+        let container = document.getElementById('graphContainer');
+        container.style.width = val + '%';
+
+        window.myLine.resize(false);
+        window.myLine.update();
+
+        /*
+        elem.style.MozTransform = 'scale(' + val/100 + ',' + val/100 + ')';
+        */
+
+        /*
+        if(!isFirefox) {
+          elem.style.zoom = val/100;
+        }else {
+          elem = document.getElementById('graphContainer');
+          elem.style.MozTransform = 'scale(' + val/100 + ')';
+          let sx = document.body.clientWidth * 1.0;
+          let sy = document.body.clientHeight * 1.0;
+          let a = val/100;
+          elem.style.position = 'relative';
+          elem.style.left = '-' + ((sx-sx*a)/2.0) + 'px';
+          elem.style.top = '-'+((sy-sy*a)/4.1)+'px';
+          elem.style.MozTransform = 'scale(' + a + ')';
+        }
+        */
+      }
+
+      function changeGraphWidth(val) {
+        document.getElementById('object_graph').style.width = val + '%';
+      }
+
+      function reflectText() {
+        changeRubyVisibility();
+        // if(dispWin) preview(undefined, false);
+        simplePreview();
+      }
+
+      function changeRubyVisibility() {
+        if(!isMobile) return; // モバイル向けのみの機能とする？
+
+        let target = document.getElementById('tainput');
+        let pos = getRange(target);
+
+        let val = target.value;
+        let range = val.slice(pos.start, pos.end);
+
+        // console.log(range + ':' + pos.start + ':' + pos.end);
+        if (range || pos.start != pos.end) {
+          document.getElementById('rubyBtn').disabled = false;
+        }else{
+          document.getElementById('rubyBtn').disabled = true;
+        }
+      }
+
+      function makeRuby() {
+        let target = document.getElementById('tainput');
+        let pos = getRange(target);
+
+        let val = target.value;
+        let range = val.slice(pos.start, pos.end);
+        let beforeNode = val.slice(0, pos.start);
+        let afterNode  = val.slice(pos.end);
+        let insertNode;
+
+        if (range || pos.start != pos.end) {
+          let ruby = prompt('振り仮名を入力してください');
+          if(!ruby) return;
+          insertNode = '#' + range + '#[' + ruby + ']';
+//          insertNode = '[' + range + '/' + ruby + ']';
+          target.value = beforeNode + insertNode + afterNode;
+        }
+        simplePreview();
+      }
+
+      function getRange(obj) {
+        let pos = new Object();
+
+        if (navigator.userAgent.indexOf('Trident') != -1 || navigator.userAgent.indexOf('Edge') != -1) {
+          obj.focus();
+          let range = document.selection.createRange();
+          let clone = range.duplicate();
+
+          clone.moveToElementText(obj);
+          clone.setEndPoint( 'EndToEnd', range );
+
+          pos.start = clone.text.length - range.text.length;
+          pos.end   = clone.text.length - range.text.length + range.text.length;
+        }else if(window.getSelection()) {
+          pos.start = obj.selectionStart;
+          pos.end   = obj.selectionEnd;
+        }
+
+        return pos;
+      }
+    </script>
+    <style>
+a:link {
+  color: blue;
+}
+a:visited {
+  color: blue;
+}
+a:hover {
+  color: #99F;
+}
+a:active {
+  color: #99F;
+}
+#tainput {
+  border:1px solid #999;
+}
+#dialog {
+  position: absolute;
+  top: 0px;
+  right: 0px;
+  bottom: 0px;
+  left: 0px;
+  display: none;
+  font-size: 14px;
+  width: 250px;
+  height: 100px;
+  background-color: #FFF;
+  margin: auto;
+  padding: 30px 20px;
+  text-align: center;
+  border: 1px solid #aaa;
+  box-shadow: 4px 4px 4px #333;
+  vertical-align: middle;
+}
+div.ans {
+  border: 1px solid #999;
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.under {
+  -moz-border-radius: 0px 0px 8px 8px; /* for Firefox */
+  -webkit-border-radius: 0px 0px 8px 8px; /* for Chrome */
+  border-radius: 0px 0px 8px 8px;
+}
+.over {
+  -moz-border-radius: 8px 8px 0px 0px; /* for Firefox */
+  -webkit-border-radius: 8px 8px 0px 0px; /* for Chrome */
+  border-radius: 8px 8px 0px 0px;
+}
+table {
+  border: 1px solid #999;
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+table thead th,
+table tbody th,
+table tbody td {
+  padding: .6em 3em;
+  border-bottom: 1px solid #999;
+}
+table thead th {
+}
+table tbody th {
+}
+table thead th + th,
+table tbody td {
+  border-left: 1px solid #999;
+}
+table tbody tr:last-child th,
+table tbody tr:last-child td {
+  border-bottom: none;
+}
+    </style>
+  </head>
+  <body style="background-color:#FFFFE0;">
+    <div id="answers" style="margin-top:20px;">
+      <textarea id="tainput" placeholder="回答" cols="70" rows="3" oninput="reflectText()" onchange="reflectText()" onselectionchange="changeRubyVisibility()"></textarea><br/>
+      <input type="button" id="rubyBtn" value="ルビ" onclick="makeRuby();" disabled style="display:none;"/>
+      <input id="previewbtn" type="button" value="プレビュー" onclick="preview(undefined, true)"/>
+    </div>
+  </body>
+</html>

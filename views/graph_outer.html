@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ja" style="height:100%;">
+  <head>
+    <title>グラフで見る</title>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta http-equiv="Pragma" content="no-cache"><!-- 古い -->
+    <meta http-equiv="Cache-Control" content="no-store"><!-- 古い -->
+    <meta http-equiv="Expires" content="0"><!-- 古い -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="Chart.js"></script>
+    <script>
+      let graphData = null;
+      let query = {};
+      let graphTimerId = 0;
+      let page = 0;
+      let limit = 10;
+      let resultNum = 0;
+
+      if (location.search.length > 1) {
+        let m_Array = location.search.substring(1).split("&"); 
+        for (let key in m_Array) {
+          let q_Array = m_Array[key].split("=");
+          let name = q_Array[0];
+          query[name] = q_Array[1];
+        }
+      }
+      let userId = query.userId;
+      if(query.limit) limit = query.limit;
+      if(query.page) page = query.page;
+
+      window.onload = function() {
+        let anchors = document.getElementsByTagName('a');
+        for(let i in anchors){
+          anchors[i].href += '?d=' + Date.now();
+        }
+        getUser(userId);
+        getGraphData(userId);
+      }
+
+      window.onresize = function() {
+        document.getElementById('object_graph').data = document.getElementById('object_graph').data;
+      }
+
+      if (navigator.userAgent.indexOf('iPhone') != -1 || navigator.userAgent.indexOf('iPad') != -1 || navigator.userAgent.indexOf('Android') > 0) {
+        window.onorientationchange = function(event) {
+          // document.getElementById('object_graph').data = document.getElementById('object_graph').data;
+        }
+      }
+
+      function prev() {
+        page++;
+        // drawGraph(graphData.slice(-limit*page).slice(0, limit));
+        if(userId) document.getElementById('object_graph').data = '/graph_inner?page=' + page + '&userId=' + userId + '&page=' + page + '&limit=' + limit;
+        document.getElementById('page').innerText = ' [ ' + (page + 1) + 'ページ目 ]';
+        changeLinkVisibility();
+        if(window.myLine) window.myLine.update();
+      }
+
+      function next() {
+        page--;
+        // drawGraph(graphData.slice(-limit*page).slice(0, limit));
+        if(userId) document.getElementById('object_graph').data = '/graph_inner?page=' + page + '&userId=' + userId + '&page=' + page + '&limit=' + limit;
+        document.getElementById('page').innerText = ' [ ' + (page + 1) + 'ページ目 ]';
+        changeLinkVisibility();
+        if(window.myLine) window.myLine.update();
+      }
+
+      function changeLinkVisibility() {
+        if(resultNum/limit < 1) return;
+
+        if(page > resultNum/limit - 1) {
+          document.getElementById('prevLink').style.visibility = 'hidden';
+          document.getElementById('page').innerText = document.getElementById('page').innerText.replace(']', '（最後）]');
+        }else{
+          document.getElementById('prevLink').style.visibility = 'visible';
+        }
+        if(page < 1) {
+          document.getElementById('nextLink').style.visibility = 'hidden';
+          document.getElementById('page').innerText = document.getElementById('page').innerText.replace(']', '（最新）]');
+        }else{
+          document.getElementById('nextLink').style.visibility = 'visible';
+        }
+      }
+
+      function getUser(id) {
+        let url = './getuser?d=' + Date.now();
+        if(id) url += '&userId=' + id;
+
+        let req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+        req.onreadystatechange = function(){
+          if(req.readyState == 4 && req.status == 200) {
+            if(req.response) {
+              userName = JSON.parse(req.response).name;
+              document.title += userName + 'さんの結果';
+              document.getElementById('userHistory').innerText = ' ' + userName + ' さんの結果　';
+              document.getElementById('userHistory').style.display = 'block';
+            }
+          }
+        };
+        req.open("GET", url, true);
+        req.setRequestHeader("Content-Type" , "application/json");
+        req.send();
+      }
+
+      function getGraphData(userId) {
+        let url = './getgraphdata?userId='+ userId + '&d=' + Date.now() + '&limit=1000000';
+
+        let req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+
+        req.onreadystatechange = function(){
+          if(req.readyState == 4 && req.status == 200) {
+            graphData = JSON.parse(req.response);
+            resultNum = graphData.length;
+            document.getElementById('page').innerText = ' [ ' + (page + 1) + 'ページ目 ]';
+            if(resultNum/limit <= 1) document.getElementById('page').style.display = 'none';
+            // drawGraph(graphData.slice(-limit*page).slice(0, limit));
+            document.getElementById('object_graph').data = '/graph_inner?page=' + page + '&userId=' + userId + '&page=' + page + '&limit=' + limit;
+            document.getElementById('object_graph').onload = function() {
+              document.getElementById('object_graph').style.visibility = 'visible';
+            };
+            changeLinkVisibility();
+          }else if(req.readyState == 4 && req.status != 200){
+          }
+        };
+        req.open("GET", url, true);
+        req.setRequestHeader("Content-Type" , "application/json");
+        req.send();
+      }
+
+      function prepareXMLHttpRequest() {
+        if (window.XMLHttpRequest) {
+          return new XMLHttpRequest();
+        } else if (window.ActiveXObject) {
+          return new ActiveXObject("Microsoft.XMLHTTP");
+        }
+        return null;
+      }
+    </script>
+    <style>
+a:link {
+  color: blue;
+}
+a:visited {
+  color: blue;
+}
+a:hover {
+  color: #99F;
+}
+a:active {
+  color: #99F;
+}
+    </style>
+  </head>
+  <body style="background-color:#FFF;margin:0px;padding:0px;width:100%;heiight:100%;overflow:hidden;">
+    <div style="position:absolute;left:0px;top:40px;width:100%;height:85%;">
+      <object id="object_graph" data="/graph_inner?limit=1&page=0" style="visibility:hidden;width:100%;height:100%;"><p>object要素がサポートされていないようです。<a id="link_graph" href="javascript:void(0)" onclick="window.open('/graph', 'graph')" target="graph">こちら</a>をごらんください。</p></object>
+    </div>
+    <p id="userHistory" style="position:absolute;top:0px;left:0px;width:100%;height:30px;text-align:center;font-weight:bold;font-size:16px;"></p>
+    <table style="width:100%;position:absolute;left:0px;bottom:0px;"><tr style="heigt:100%;">
+      <td style="text-align:right;width:15%;padding-right:10px;"><a id="prevLink" href="javascript:void(0)" onclick="prev();return false;" style="white-space:nowrap;visibility:hidden;font-size:16px;font-weight:bold;text-decoration:none;">&lt;&lt;前へ</a></td>
+      <td style="text-align:center;width:70%;"><span id="page" style="white-space:nowrap;visibility:visible;font-size:16px;font-weight:bold;"></span></td>
+      <td style="text-align:left;width:15%;padding-left:10px;"><a id="nextLink" href="javascript:void()" onclick="next();return false;" style="white-space:nowrap;visibility:hidden;font-size:16px;font-weight:bold;text-decoration:none;">次へ&gt;&gt;</a></td>
+    </tr></table>
+  </body>
+</html>

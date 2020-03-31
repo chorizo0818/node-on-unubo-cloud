@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <title>回答編集</title>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta http-equiv="Pragma" content="no-cache"><!-- 古い -->
+    <meta http-equiv="Cache-Control" content="no-store"><!-- 古い -->
+    <meta http-equiv="Expires" content="0"><!-- 古い -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script>
+      let sentence = null;
+      let odaiText = null;
+      let ansId = undefined;
+      let odaiId = undefined;
+      let private = false;
+      let isMobile = false;
+      let isEditable = true;
+      let initText = '';
+      let isLocked = false;
+      let query = {};
+
+      let lockedImage = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAUCAYAAACEYr13AAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAXEQAAFxEByibzPwAAABh0RVh0U29mdHdhcmUAcGFpbnQubmV0IDQuMS4xYyqcSwAAAb9JREFUOE9jwALEGBkZmxQUFM7r6el91tXV/SQpKXkKKF4FxIJgFXiAP1DD+/z8/P/19fUoODU19b+8vPwLoBoniFJM4OPk5PQHXSMyrq2t/Q901Q+gWluIFgQQ0NHReQ1TmJOT8x/okr98fHzXhISEbpqbm/8rLS0Fy9XU1PwHeuk+UA8HRCsQMDExlYE0gRRkZmb+5+DgOAcUVoPIgoGBiIjIDZghoaGh/4FiiRApIJCTkzsIs11ZWfkLUEgKIoMC1CwtLX+B1FRXV/9nYWFZCxVncAU6/z1IAuQ8oGsuAsXisGEJCYm7MIuALnoIFHNj0NDQ+JWdnQ0WrKur+5+QkIATJyYmgtWBMDRW/jKYmZnhDXl8WFNT8z9OA/Ly8v4bGhr+NzEx+V9UVIQhD8J4DRATEwOFNBgrKipiyIMwTgNACQYYynADgOkBRR6G8brAwsICboCzszOGPAjjNQCEBQQE/qurq2OVA2GCBggKCoIVYZMDYdobAEzW/4EZCascCIMNMDIy+o5Nkhispqb2m4Gfn387roSCD+fm5oJy7W5gLDHIcnFxHQA696+Kisp/YjBQ7T92dvZDDAwMcgAPITCybwqjeAAAAABJRU5ErkJggg==';
+      let unlockedImage = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAUCAYAAACEYr13AAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAXEQAAFxEByibzPwAAABh0RVh0U29mdHdhcmUAcGFpbnQubmV0IDQuMS4xYyqcSwAAAihJREFUOE9jwAJkWJmZ26205C6EO+h+jnY2+ORqrHKBm521HSgnC1GCGyS5m6p+XVsf9f/0tMz/V+bk/b+9qOj/w2Vl/y/Pzf+f5W/xlZWJKQWqFgMkJ3sY/9/ZHv//YF/q/yMT0v4vqQz9v7Im4v+1eQX/n62u/P96fc3/OSVB/4GGpEH1wIGsjbb81w2N0WADCoOt//Nzsx8EilcAcSU3J9uhsnC7/y/XVf9/u6H2v5uJ6leguAhIIww0d6e5/wcZUBxq/R/IL4MIo4DSYDud/xpyoi+B7CogZgaLgoAwH9eh5VVhYANUpISvAIUYITIYwBWIuSBMJKAoIXgDZoC0CN9GqDDRwF5BXOAZwgDe00CxMCKxAwPQxl+NcU7/YQZMyfX9Py3P7/9cYGgvqQz7v6o28v86oPimlrj/2zoS/u/qSvq/DxhLhyam/w+x1/3LoCwl9GdecSDcAFg0oqcDWDR+2FT//+v2pv+/drf+zwm0+o/TgJkF/v/NNGT+2+oq/N/SGkeaAXu7k/7zcrKDohOM5cQESDeAi4MVbgAwnEj3wqRsn/9srMz/pYCa1zZEk24AKBCFeDn/g1IfWYFIPwOAyfgXLgMO9Kb8Pzs9G6cBmf4WfxmAAXWkPckVqwH4EtIbYLbWUZQ4AYwlBhVudrZjwETz11ZX/r+DvuJ/Z0NlYJ5X+e9ppvbfx0Ljv5+l5n9/a63/gTbaYC8B8T8lSaFjDAwMqgCOezxq2zNgewAAAABJRU5ErkJggg==';
+
+      let isFirefox = (navigator.userAgent.indexOf('Firefox') != -1);
+
+      if (location.search.length > 1) {
+        let m_Array = location.search.substring(1).split("&"); 
+        for (let key in m_Array) {
+          let q_Array = m_Array[key].split("=");
+          let name = q_Array[0];
+          query[name] = q_Array[1];
+        }
+        ansId = query.ansId;
+        odaiText = query.odaiText;
+        sentence = query.sentence;
+        private = eval(query.private);
+        if(!sentence) sentence = window.opener.document.getElementById('ans' + ansId).innerText;
+        checkEditable(ansId);
+      }
+
+      window.onload = function() {
+        getOdai(query['odaiId']);
+        if(ansId == undefined || ansId == null) {
+          document.getElementById('lock').style.display = 'table-cell';
+          document.getElementById('lockMessage').innerText = '回答が指定されていません';
+          document.getElementById('editarea').disabled = true;
+        }
+
+        document.getElementById('lockImg').src = (private)? lockedImage : unlockedImage;
+        document.getElementById('lockImg').style.width = '20px';
+        document.getElementById('lockImg').style.height = '25px';
+
+        if(sentence && sentence != 'null') document.getElementById('editarea').value = initText = decodeURIComponent(sentence);
+        simplePreview(sentence);
+        if(odaiText) document.getElementById('sp_odai').innerText = decodeURIComponent(odaiText);
+        document.getElementById('editarea').focus();
+        if (navigator.userAgent.indexOf('iPhone') != -1 || navigator.userAgent.indexOf('iPad') != -1 || navigator.userAgent.indexOf('Android') > 0 || navigator.userAgent.indexOf('WP') != -1) {
+          isMobile = true;
+          document.getElementById('rubyBtn').style.display = 'inline';
+          if(navigator.userAgent.indexOf('iPhone') != -1) {
+            document.getElementById('spContainer').style.width = '365px';
+            document.getElementById('resetBtn').style.width = document.getElementById('execEdit').style.width = document.getElementById('close').style.width = '74px';
+          }
+        }else if(navigator.userAgent.indexOf('Chrome') != -1){
+          let spContainer = document.getElementById('spContainer');
+          document.getElementById('rowheader').style.height = (350 * 0.6) + 'px';
+          spContainer.style.zoom = '0.6';
+          spContainer.style.width = '840px';
+          spContainer.style.height = '350px';
+          let sp_odai = document.getElementById('sp_odai');
+          sp_odai.style.top = '10px';
+          sp_odai.style.left = '10px';
+          sp_odai.style.fontSize = '20px';
+          sp_odai.style.height = '20px';
+          let sp = document.getElementById('sp');
+          sp.style.width = '840px';
+          sp.style.height = '350px';
+          sp.style.top = '-25px';
+          let sp_answer = document.getElementById('sp_answer');
+          sp_answer.style.marginBottom = '-10px';
+          sp_answer.style.fontSize = '32px';
+          sp_answer.style.top = '-25px';
+        }
+      };
+
+      function checkEditable(ansId) {
+        let url = './getanswer?ansId=' + ansId + '&d=' + Date.now();
+        let req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+        req.onreadystatechange = function(){
+          if(req.readyState == 4) {
+            if(req.status == 200) {
+              let answer = JSON.parse(req.response);
+              if(!answer.editable) {
+                isEditable = false;
+                document.getElementById('lock').style.display = 'table-cell';
+                document.getElementById('editarea').disabled = true;
+              }
+            }else{
+              alert(req.response);
+            }
+          }
+        }
+        req.open("GET", url, true);
+        req.setRequestHeader("Content-Type" , "application/json");
+        req.send();
+      }
+
+      function getOdai(id) {
+        let url = './getodai?odaiId=' + id + '&d=' + Date.now();
+        let req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+        req.onreadystatechange = function(){
+          if(req.readyState == 4) {
+            if(req.status == 200) {
+              let odai = JSON.parse(req.response);
+
+              let bgImg = null;
+              if(localStorage.getItem('tmpImg')) {
+                bgImg = localStorage.getItem('tmpImg');
+              }else if(odai.img) {
+                bgImg = odai.img;
+              }
+              if(bgImg) {
+                let imW = imH = 0;
+
+                let img = document.createElement('img');
+                img.src = bgImg;
+                img.onload = function() {
+                  imW = this.width;
+                  imH = this.height;
+                  reflectText();
+
+                  document.getElementById('spContainer').style.backgroundImage = 'url(' + bgImg + ')';
+                  document.getElementById('spContainer').style.backgroundRepeat = 'no-repeat';
+                  document.getElementById('spContainer').style.backgroundPosition = 'center 30%';
+                  if(!isFirefox && !isMobile) {
+                    document.getElementById('spContainer').style.backgroundSize = (imW * 0.98) + 'px ' + (imH * 0.98) + 'px';
+                  }else{
+                    document.getElementById('spContainer').style.backgroundSize = (imW * 0.44) + 'px ' + (imH * 0.44) + 'px';
+                  }
+                }
+                document.getElementById('sp').style.verticalAlign = 'top';
+                document.getElementById('spContainer').style.verticalAlign = 'top';
+
+                if(isFirefox || isMobile) {
+                  document.getElementById('sp_answer').style.fontSize = '11px';
+                  document.getElementById('sp_answer').style.marginBottom = '0px';
+                  document.getElementById('sp_answer').style.marginTop = '125px';
+                }else{
+                  document.getElementById('sp_answer').style.fontSize = '22px';
+                  document.getElementById('sp_answer').style.marginBottom = '20px';
+                  document.getElementById('sp_answer').style.marginTop = '280px';
+                }
+              }else{
+                document.getElementById('spContainer').style.backgroundImage = '';
+
+                document.getElementById('sp').style.verticalAlign = 'middle';
+                document.getElementById('spContainer').style.verticalAlign = 'middle';
+
+                if(isFirefox || isMobile) {
+                  document.getElementById('sp_answer').style.fontSize = '16px';
+                  document.getElementById('sp_answer').style.marginBottom = '-10px';
+                }else{
+                  document.getElementById('sp_answer').style.fontSize = '32px';
+                  document.getElementById('sp_answer').style.marginBottom = '-20px';
+                }
+              }
+              document.getElementById('sp').style.display = 'table-cell';
+            }else{
+              alert(req.response);
+            }
+          }
+        }
+        req.open("GET", url, true);
+        req.setRequestHeader("Content-Type" , "application/json");
+        req.send();
+      }
+
+      document.onselectionchange = changeRubyVisibility;
+
+      function editAnswer() {
+        let editSentence = document.getElementById('editarea').value;
+        if(initText == editSentence || (!editSentence.trim() && !localStorage.getItem('tmpImg'))) {
+          // 変わってなければ送信しない、トリムで空文字になるなら送信しない
+          return;
+        }
+        var url = './edit_answer?d=' + Date.now();
+        let req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+        req.onreadystatechange = function(){
+          if(req.readyState == 4) {
+            if(req.status == 200) {
+              // if(window.opener) window.opener.redraw();
+              if(window.opener) {
+                // window.opener.document.getElementById('ans' + ansId).innerText = editSentence;
+                // window.opener.updateAnswer(ansId, editSentence);
+                window.opener.redraw();
+              }
+              window.close();
+            }else{
+              alert(req.response);
+            }
+          }
+        };
+        req.open("POST", url, true);
+        let data = {id: ansId, sentence:editSentence};
+        req.setRequestHeader("Content-Type" , "text/plain");
+        req.send(JSON.stringify(data));
+      }
+
+      function delAnswer() {
+        if(!confirm('削除しますか？')) return;
+        var url = './delete?d=' + Date.now();
+        let req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+        req.onreadystatechange = function(){
+          if(req.readyState == 4) {
+            if(req.status == 200) {
+              if(window.opener) window.opener.redraw();
+              window.close();
+            }else{
+              alert(req.response);
+            }
+          }
+        };
+        req.open("POST", url, true);
+        let data = {id: ansId};
+        req.setRequestHeader("Content-Type" , "text/plain");
+        req.send(JSON.stringify(data));
+      }
+
+      function simplePreview(sentence) {
+        if(odaiText) document.getElementById('sp_odai').innerText = decodeURIComponent(odaiText);
+
+        let rubyMatch = /#(.+?)#\[(.+?)\]/g;
+        let rubyTag = '<ruby>$1<rt style="font-size:6.3px;margin-bottom:-3px;">$2</rt></ruby>';
+        let ans = document.getElementById('editarea').value;
+
+        const ansBox = document.createElement('p');
+        ansBox.style.display = 'inline-block';
+        ansBox.style.margin = '0px';
+        ansBox.style.padding = '0px';
+        if(ans.startsWith('[left]')){
+          ans = ans.substring('[left]'.length);
+          ansBox.style.textAlign = 'left';
+        }else if(ans.startsWith('[right]')) {
+          ans = ans.substring('[right]'.length);
+          ansBox.style.textAlign = 'right';
+        }else{
+          ansBox.style.textAlign = 'center';
+        }
+        while(document.getElementById('sp_answer').firstChild) document.getElementById('sp_answer').removeChild(document.getElementById('sp_answer').firstChild);
+
+        if(ans.match(rubyMatch) && ans.indexOf('[plain]') != 0) {
+          ans = ans.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          ans = ans.replace(rubyMatch, rubyTag);
+          ansBox.innerHTML = ans.replace(/\n/g, '<br/>');
+        }else{
+          ansBox.innerText = ans.replace(/\[plain\]/, '');
+        }
+        document.getElementById('sp_answer').appendChild(ansBox);
+      }
+
+      function prepareXMLHttpRequest() {
+        if (window.XMLHttpRequest) {
+          return new XMLHttpRequest();
+        } else if (window.ActiveXObject) {
+          return new ActiveXObject("Microsoft.XMLHTTP");
+        }
+        return null;
+      }
+
+      function reflectText() {
+        checkJustifications();
+        changeRubyVisibility();
+        // if(dispWin) preview(undefined, false);
+        simplePreview();
+      }
+
+      function resetText() {
+        document.getElementById('editarea').value = initText;
+        reflectText();
+      }
+
+      function changeRubyVisibility() {
+        
+        if(!isMobile) return; // モバイル向けのみの機能とする？
+
+        let target = document.getElementById('editarea');
+        let pos = getRange(target);
+        let val = target.value;
+        let range = val.slice(pos.start, pos.end);
+        // console.log(range + ':' + pos.start + ':' + pos.end);
+        if (range || pos.start != pos.end) {
+          document.getElementById('rubyBtn').disabled = false;
+        }else{
+          document.getElementById('rubyBtn').disabled = true;
+        }
+      }
+
+      function makeRuby() {
+        let target = document.getElementById('editarea');
+        let pos = getRange(target);
+
+        let val = target.value;
+        let range = val.slice(pos.start, pos.end);
+        let beforeNode = val.slice(0, pos.start);
+        let afterNode  = val.slice(pos.end);
+        let insertNode;
+
+        if (range || pos.start != pos.end) {
+          let ruby = prompt('振り仮名を入力してください');
+          if(!ruby) return;
+          insertNode = '#' + range + '#[' + ruby + ']';
+//          insertNode = '[' + range + '/' + ruby + ']';
+          target.value = beforeNode + insertNode + afterNode;
+        }
+        simplePreview();
+      }
+
+      function getRange(obj) {
+        let pos = new Object();
+
+        if (navigator.userAgent.indexOf('Trident') != -1 || navigator.userAgent.indexOf('Edge') != -1) {
+          obj.focus();
+          let range = document.selection.createRange();
+          let clone = range.duplicate();
+
+          clone.moveToElementText(obj);
+          clone.setEndPoint( 'EndToEnd', range );
+
+          pos.start = clone.text.length - range.text.length;
+          pos.end   = clone.text.length - range.text.length + range.text.length;
+        }else if(window.getSelection()) {
+          pos.start = obj.selectionStart;
+          pos.end   = obj.selectionEnd;
+        }
+
+        return pos;
+      }
+
+      function togglePrivate() {
+        let url = './setprivate';
+
+        let req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+
+        req.onreadystatechange = function(){
+          if(req.readyState == 4 && req.status == 200) {
+            let result = eval(req.response);
+            document.getElementById('lockImg').src = (result)? lockedImage : unlockedImage;
+            if(window.opener) window.opener.redraw();
+          }else if(req.readyState == 4 && req.status != 200) {
+            alert(req.response);
+          }
+        };
+
+        req.open("POST", url, true);
+        req.send(JSON.stringify({targetId:ansId}));
+      }
+
+      const justifications = ['left', 'right'];
+
+      function changeJustification(num) {
+        const ta = document.getElementById('editarea');
+        const targetStr = '[' + justifications[num] + ']';
+
+        const jBtns = document.getElementsByClassName('jBtn');
+        for(let i in jBtns) {
+          if(jBtns[i].style) jBtns[i].style.borderColor = '#999';
+        }
+
+        for(let i in justifications) {
+          if(!ta.value.startsWith(targetStr) && ta.value.startsWith('[' + justifications[i] + ']')) {
+            ta.value = ta.value.substring(('[' + justifications[i] + ']').length);
+          }
+        }
+
+        if(ta.value.startsWith(targetStr)) {
+          ta.value = ta.value.substring(targetStr.length);
+          document.getElementById('justification_' + justifications[num]).style.borderColor = '#999';
+        }else{
+          ta.value = targetStr + ta.value;
+          document.getElementById('justification_' + justifications[num]).style.borderColor = '#F00';
+        }
+        reflectText();
+      }
+
+      function checkJustifications() {
+        const ta = document.getElementById('editarea');
+
+        for(let i in justifications) {
+          if(ta.value.startsWith('[' + justifications[i] + ']')) {
+            document.getElementById('justification_' + justifications[i]).style.borderColor = '#F00';
+          }else{
+            document.getElementById('justification_' + justifications[i]).style.borderColor = '#999';
+          }
+        }
+      }
+
+    </script>
+    <style>
+html,
+body {
+  height: 100%;
+  margin: 0px;
+}
+
+.box {
+  display: flex;
+  flex-flow: column;
+  height: 100%;
+}
+
+.box .row {
+  border: 1px dotted grey;
+}
+
+.box .row.header {
+  flex: 0 1 auto;
+  height: 160px;
+  /* The above is shorthand for:
+  flex-grow: 0,
+  flex-shrink: 1,
+  flex-basis: auto
+  */
+}
+
+.box .row.content {
+  flex: 1 1 auto;
+  height:0px;
+}
+
+.box .row.footer {
+  flex: 0 1 35px;
+  overflow: hidden;
+}
+    </style>
+  </head>
+  <body>
+    <div class="box">
+      <div id="rowheader" class="row header">
+        <div id="spContainer" style="overflow:hidden;position:relative;width:375px;height:157.5px;font-family:Arial, Verdana, Roboto, メイリオ, Meiryo; background-color:#FF9;padding:0px;border:1px solid #000;">
+          <div id="sp_odai" style="position:relative; top:4.5px; left:5px; font-size:9px; font-weight:bold;height:6.75px;"></div>
+          <div id="sp" style="position:relative;overflow:hidden;top:-6.75px;width:375px;height:157.5px;font-family:Arial, Verdana, Roboto, メイリオ, Meiryo; display: none; text-align: center; vertical-align: middle;">
+            <div id="sp_answer" style="overflow:hidden;margin-bottom:-6.75px; line-height:1.5em; word-break: break-all; width:100%; text-align:center; vertical-align:middle; font-size:14.4px; font-weight:bold;"></div>
+          </div>
+        </div>
+      </div>
+      <div class="row content"><textarea id="editarea" class="editor" style="width:98%;height:95%;font-size:18px;" oninput="reflectText()" onchange="reflectText()" onselectionchange="changeRubyVisibility()"></textarea></div>
+      <div class="row footer">
+        <div style="float:left;">
+          <input id="rubyBtn" type="button" value="ルビ" onclick="makeRuby();" disabled style="display:none;font-size:11px;height:20px;border-color:#999;border-width:2px;padding:1px 3px;margin:5px 0px;border-radius:5px;background-color:#F3F3F3;"/>
+          <input id="resetBtn" type="button" value="リセット" onclick="resetText();" style="font-size:11px;height:20px;border-color:#999;border-width:2px;padding:1px 3px;margin:5px 0px;border-radius:5px;background-color:#F3F3F3;"/>
+          <input id="execEdit" type="button" value="編集実行" onclick="editAnswer()" style="font-size:11px;height:20px;border-color:#999;border-width:2px;padding:1px 3px;margin:5px 0px;border-radius:5px;background-color:#F3F3F3;"/>
+
+          <span style="display:inline-block;width:8px;"></span>
+          <input id="justification_left" class="jBtn" type="button" value="左" onclick="changeJustification(0)" style="font-size:11px;height:20px;border-color:#999;border-width:2px;padding:1px 3px;margin:5px 0px;border-radius:5px;background-color:#F3F3F3;"/>
+          <input id="justification_right" class="jBtn" type="button" value="右" onclick="changeJustification(1)" style="font-size:11px;height:20px;border-color:#999;border-width:2px;padding:1px 3px;margin:5px 0px;border-radius:5px;background-color:#F3F3F3;"/>
+          <!-- input id="close" type="button" value="キャンセル" onclick="javascript:window.close()" style="width:80px;"/ -->
+        </div>
+        <div style="text-align:right;margin-bottom:-5px;">
+          <img id="lockImg" src="dummy" width="0" height="0" onclick="togglePrivate()"/>
+          <img id="delete" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAUCAMAAACzvE1FAAAABGdBTUEAALGPC/xhBQAAAwBQTFRFAAAAWVlZW1tbXFxcXl5eX19fYmJiZGRkZmZmaGhoa2trbm5ub29vcXFxc3NzdXV1dnZ2enp6e3t7fn5+gYGBg4ODhYWFh4eHi4uLjY2Nj4+PkJCQlJSUmpqan5+fo6OjpaWlsLCwt7e3uLi4v7+/ysrK1NTU4ODg6+vr9fX1+fn5/Pz8/v7+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAknIVGAAAAQB0Uk5T////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////AFP3ByUAAAAJcEhZcwAAFxEAABcRAcom8z8AAAAYdEVYdFNvZnR3YXJlAHBhaW50Lm5ldCA0LjEuMWMqnEsAAACtSURBVChTTdDpDoIwEATgHQFB5PQAFOWQG3n/16sLXY3zo5l8TdptSekcz1K+AEghFeMvsaK7VMmD9tIkh+8Zv9BJtiQXsqRJbIpgZFySKy+ZgYhucJcd0DTAbnFxoxL229awlpIUzNnT4M0meFJg4mFXiCd+wApjoiEZN7Aw5BryARaDj/6p4dnDZ0jRVRqqDilDgbZmeAF1i4JBIQwAn68OQv4lBmd7xBZHqQ9kuU3HAIpNBwAAAABJRU5ErkJggg==" onclick="delAnswer()" style="margin-left:5px;margin-right:5px;width:20px;height:25px"/>
+        </div>
+      </div>
+    </div>
+    <div id="lock" style="position:absolute;left:0px;top:0px;width:100%;height:100%;background-color:rgba(0,0,0,0.5);color:#FFF;font-size:20px;display:none;vertical-align:middle;text-align:center;font-weight:bold;">
+      <p id="lockMessage" style="margin-top:100px;">
+        この回答は編集できません。
+      </p>
+      <input type="button" value="閉じる" onclick="javascript:window.close()"/>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,1939 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <title>大喜利のやつ</title>
+    <meta http-equiv="Content-Style-Type" content="text/css">
+    <meta http-equiv="Content-Script-Type" content="text/javascript">
+    <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no">
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta http-equiv="Pragma" content="no-cache"><!-- 古い -->
+    <meta http-equiv="Cache-Control" content="no-store"><!-- 古い -->
+    <meta http-equiv="Expires" content="0"><!-- 古い -->
+    <script src="Chart.js"></script>
+    <script>
+      let myName;
+      let myId;
+      let targetOdai;
+      let odaiText;
+      let dispWin = null;
+      let timerId = 0;
+      let isOpen = false;
+      let resultLimit = 10;
+      
+      let messagePos = 200;
+      let message;
+      let vel = 0.0;
+      let acc = 1.0;
+      
+      let isMobile = false;
+
+      let dialog = null;
+      let dlg_yes = null;
+      let dlg_no = null;
+      
+      let userready = false;
+      let odaiready = false;
+
+      let currentUrl = undefined;
+      let videoEditedBy = undefined;
+      let videoEditedAt = undefined;
+
+      let currentImg = null;
+      let drawingImg = null;
+      let imW = imH = 0;
+
+      let rubySize = 6.3;
+
+      let showHelp = false;
+      let showPrev = true;
+      if(localStorage.getItem('showHelp_toshitoko') != undefined) showHelp = eval(localStorage.getItem('showHelp_toshitoko'));
+      if(localStorage.getItem('showPrev_toshitoko') != undefined) showPrev = eval(localStorage.getItem('showPrev_toshitoko'));
+
+      let lockedImage = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAUCAYAAACEYr13AAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAXEQAAFxEByibzPwAAABh0RVh0U29mdHdhcmUAcGFpbnQubmV0IDQuMS4xYyqcSwAAAb9JREFUOE9jwALEGBkZmxQUFM7r6el91tXV/SQpKXkKKF4FxIJgFXiAP1DD+/z8/P/19fUoODU19b+8vPwLoBoniFJM4OPk5PQHXSMyrq2t/Q901Q+gWluIFgQQ0NHReQ1TmJOT8x/okr98fHzXhISEbpqbm/8rLS0Fy9XU1PwHeuk+UA8HRCsQMDExlYE0gRRkZmb+5+DgOAcUVoPIgoGBiIjIDZghoaGh/4FiiRApIJCTkzsIs11ZWfkLUEgKIoMC1CwtLX+B1FRXV/9nYWFZCxVncAU6/z1IAuQ8oGsuAsXisGEJCYm7MIuALnoIFHNj0NDQ+JWdnQ0WrKur+5+QkIATJyYmgtWBMDRW/jKYmZnhDXl8WFNT8z9OA/Ly8v4bGhr+NzEx+V9UVIQhD8J4DRATEwOFNBgrKipiyIMwTgNACQYYynADgOkBRR6G8brAwsICboCzszOGPAjjNQCEBQQE/qurq2OVA2GCBggKCoIVYZMDYdobAEzW/4EZCascCIMNMDIy+o5Nkhispqb2m4Gfn387roSCD+fm5oJy7W5gLDHIcnFxHQA696+Kisp/YjBQ7T92dvZDDAwMcgAPITCybwqjeAAAAABJRU5ErkJggg==';
+      let unlockedImage = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAUCAYAAACEYr13AAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAXEQAAFxEByibzPwAAABh0RVh0U29mdHdhcmUAcGFpbnQubmV0IDQuMS4xYyqcSwAAAihJREFUOE9jwAJkWJmZ26205C6EO+h+jnY2+ORqrHKBm521HSgnC1GCGyS5m6p+XVsf9f/0tMz/V+bk/b+9qOj/w2Vl/y/Pzf+f5W/xlZWJKQWqFgMkJ3sY/9/ZHv//YF/q/yMT0v4vqQz9v7Im4v+1eQX/n62u/P96fc3/OSVB/4GGpEH1wIGsjbb81w2N0WADCoOt//Nzsx8EilcAcSU3J9uhsnC7/y/XVf9/u6H2v5uJ6leguAhIIww0d6e5/wcZUBxq/R/IL4MIo4DSYDud/xpyoi+B7CogZgaLgoAwH9eh5VVhYANUpISvAIUYITIYwBWIuSBMJKAoIXgDZoC0CN9GqDDRwF5BXOAZwgDe00CxMCKxAwPQxl+NcU7/YQZMyfX9Py3P7/9cYGgvqQz7v6o28v86oPimlrj/2zoS/u/qSvq/DxhLhyam/w+x1/3LoCwl9GdecSDcAFg0oqcDWDR+2FT//+v2pv+/drf+zwm0+o/TgJkF/v/NNGT+2+oq/N/SGkeaAXu7k/7zcrKDohOM5cQESDeAi4MVbgAwnEj3wqRsn/9srMz/pYCa1zZEk24AKBCFeDn/g1IfWYFIPwOAyfgXLgMO9Kb8Pzs9G6cBmf4WfxmAAXWkPckVqwH4EtIbYLbWUZQ4AYwlBhVudrZjwETz11ZX/r+DvuJ/Z0NlYJ5X+e9ppvbfx0Ljv5+l5n9/a63/gTbaYC8B8T8lSaFjDAwMqgCOezxq2zNgewAAAABJRU5ErkJggg==';
+
+      let allowAfterClosed = false;
+      let isFirefox = (navigator.userAgent.indexOf('Firefox') != -1);
+
+      let answers = null;
+
+      if (location.search.length > 1) {
+        let m_Array = location.search.substring(1).split("&"); 
+        for (let key in m_Array) {
+          let q_Array = m_Array[key].split("=");
+          let name = q_Array[0];
+          // query[name] = q_Array[1];
+          if(name == 'targetOdai') targetOdai = q_Array[1];
+        }
+      }
+
+      function showMessage(str) {
+        if(message) {
+          document.body.removeChild(message);
+          vel = 0.0;
+          clearTimeout(timerId);
+        }
+        message = document.createElement('p');
+        message.style.whiteSpace = 'nowrap';
+        message.innerText = str;
+        message.style.position = 'fixed';
+        message.style.top = '50px';
+        message.style.left = messagePos + 'px';
+        message.style.fontSize = '50px';
+        message.style.color = '#C66';
+        message.style.fontWeight = 'bold';
+        document.body.appendChild(message);
+        animate();
+      }
+      
+      function animate() {
+        vel = vel + acc;
+        message.style.left = (parseInt(message.style.left.replace('px', '')) - vel) + 'px';
+        if(parseInt(message.style.left.replace('px', '')) > -400) {
+          timerId = setTimeout(animate, 30);
+        }else{
+          vel = 0.0;
+          document.body.removeChild(message);
+          message = null;
+        }
+      }
+
+      addKeyEvent();
+
+      window.onload = function() {
+        changeHelp(showHelp);
+        changePreview(showPrev);
+        dialog = document.getElementById('dialog');
+        dlg_yes = document.getElementById('dlg_yes');
+        dlg_no = document.getElementById('dlg_no');
+
+        if (navigator.userAgent.indexOf('iPhone') != -1 || navigator.userAgent.indexOf('iPad') != -1 || navigator.userAgent.indexOf('Android') > 0 || navigator.userAgent.indexOf('WP') != -1) {
+          isMobile = true;
+          document.getElementById('odais').style.width = '100%';
+          // document.getElementById('previewbtn').style.display = 'none';
+          document.getElementById('rubyBtn').style.display = 'inline';
+          if(navigator.userAgent.indexOf('iPhone') != -1) {
+            document.getElementById('helpExpander').style.width = document.getElementById('helpContainer').style.width = document.getElementById('spContainer').style.width = document.getElementById('spExpander').style.width = '365px';
+          }
+          document.getElementById('taContainer').style.width = (parseInt(document.getElementById('spContainer').style.width.replace('px', '')) - 3) + 'px';
+        // }else if(navigator.userAgent.indexOf('Chrome') != -1 || navigator.userAgent.indexOf('Firefox') != -1){
+        }else if(navigator.userAgent.indexOf('Firefox') != -1) {
+        }else {
+          let spContainer = document.getElementById('spContainer');
+          spContainer.style.zoom = '0.6';
+          spContainer.style.width = '840px';
+          spContainer.style.height = '350px';
+          document.getElementById('taContainer').style.width = (840*0.6 - 5) + 'px';
+          document.getElementById('helpExpander').style.width = document.getElementById('helpContainer').style.width = document.getElementById('spExpander').style.width = (840*0.6 - 1) + 'px';
+          let sp_odai = document.getElementById('sp_odai');
+          sp_odai.style.top = '10px';
+          sp_odai.style.left = '10px';
+          sp_odai.style.fontSize = '20px';
+          sp_odai.style.height = '20px';
+          let sp = document.getElementById('sp');
+          sp.style.width = '840px';
+          sp.style.height = '350px';
+          sp.style.top = '-25px';
+          let sp_answer = document.getElementById('sp_answer');
+          sp_answer.style.marginBottom = '-10px';
+          sp_answer.style.fontSize = '32px';
+          sp_answer.style.top = '-25px';
+        }
+        document.getElementById('tainput').style.width = document.getElementById('taContainer').clientWidth - 36 + 'px';
+
+        if(navigator.userAgent.indexOf('Firefox') != -1 && navigator.userAgent.indexOf('Windows') != -1){
+          document.getElementById('helpExpander').style.width = document.getElementById('helpContainer').style.width = '500px';
+        }
+
+        let anchors = document.getElementsByTagName('a');
+        for(let i in anchors){
+          anchors[i].href += '?d=' + Date.now();
+        }
+        let tainput = document.getElementById('tainput');
+              tainput.addEventListener('focus', removeKeyEvent);
+              tainput.addEventListener('blur', addKeyEvent);
+        
+        getUser();
+        getOdais(targetOdai);
+        getConfig();
+      };
+
+      document.onselectionchange = changeRubyVisibility;
+
+      if (navigator.userAgent.indexOf('iPhone') != -1 || navigator.userAgent.indexOf('iPad') != -1 || navigator.userAgent.indexOf('Android') > 0) {
+        window.onorientationchange = function(event) {
+        }
+      }
+
+      function kd(e) {
+        let kcode;
+        if (document.all) {
+          kcode = e.keyCode;
+        } else {
+          kcode = e.which;
+        }
+        
+        if(kcode == 17){
+          isPressedCtrl = true;
+        }else if(kcode == 88 && isPressedCtrl) {
+          let odais = document.getElementById('odais'); // この行いらない？
+          preview(undefined, true);
+          return false;
+        }
+      }
+
+      function ku(e) {
+        let kcode;
+        if (document.all) {
+          kcode = e.keyCode;
+        } else {
+          kcode = e.which;
+        }
+        if(kcode == 17){
+          isPressedCtrl = false;
+        }
+      }
+
+      function addKeyEvent() {
+        document.addEventListener('keydown', kd);
+        document.addEventListener('keyup', ku);
+      }
+
+      function removeKeyEvent() {
+        document.removeEventListener('keydown', kd, false);
+        document.removeEventListener('keyup', ku, false);
+      }
+
+      function getConfig() {
+        var url = './allowafterclosed?d=' + Date.now();
+        let req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+        req.onreadystatechange = function(){
+          if(req.readyState == 4) {
+            try{
+              allowAfterClosed = eval(req.response);
+            }catch(e){
+            }
+          }
+        };
+        req.open("GET", url, true);
+        req.setRequestHeader("Content-Type" , "application/json");
+        req.send();
+      }
+
+      function getUser() {
+        var url = './getuser?d=' + Date.now();
+
+        let req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+
+        req.onreadystatechange = function(){
+          if(req.readyState == 4 && req.status == 200) {
+            myName = JSON.parse(req.response).name;
+            myId = JSON.parse(req.response)._id;
+            overTwo(myId);
+            document.getElementById('welcome').innerText = 'ようこそ' + myName + 'さん、回答しましょう';
+            if(isMobile) document.getElementById('welcome').style.fontSize = '14px';
+            userready = true;
+          }else if(req.readyState == 4 && req.status != 200){
+            document.getElementById('welcome').innerText = 'ログインし直してください';
+            let inputs = document.getElementsByTagName('input');
+            for(let key in inputs) {
+              inputs[key].disabled = true;
+            }
+          }
+        };
+        req.open("GET", url, true);
+        req.setRequestHeader("Content-Type" , "application/json");
+        req.send();
+      }
+
+      function setAnswer(sentence) {
+        document.getElementById('tainput').value = sentence;
+      }
+
+      function getOdais(targetOdai) {
+        var url = './getodais?d=' + Date.now();
+        let odais = document.getElementById('odais');
+
+        let req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+
+        req.onreadystatechange = function(){
+          if(req.readyState == 4 && req.status == 200) {
+            odaiready = true;
+            if(!req.response) return;
+            let obj = JSON.parse(req.response);
+            if(!obj || !obj.length) {
+              let opt = document.createElement('option');
+              opt.innerText = 'No Entry';
+              odais.style.fontSize = '16px';
+              odais.style.fontWeight = 'bold';
+              odais.appendChild(opt);
+              return;
+            }
+            const opens = [];
+            if(!targetOdai) targetOdai = obj[0]._id;
+            for(let key in obj) {
+              if(obj[key].open) {
+                opens.push(obj[key]);
+              }
+              let opt = document.createElement('option');
+              opt.value = obj[key]._id;
+              opt.innerText = obj[key].sentence;
+              opt.sentence = obj[key].sentence;
+              opt.img = obj[key].img;
+              opt.id = obj[key]._id;
+              if(opt.id == targetOdai) opt.selected = true;
+              if(opt.id == window.location.hash.substring(1)) opt.selected = true;
+              opt.createdBy = obj[key].user_id;
+              opt.releasedDate = obj[key].date_release;
+              opt.closedDate = obj[key].date_close;
+              opt.rest = obj[key].rest;
+              opt.user = obj[key].user;
+              opt.videoUrl = obj[key].videoUrl;
+              opt.videoEditedBy = obj[key].videoEditedBy;
+              opt.videoEditedAt = obj[key].videoEditedAt;
+              odais.appendChild(opt);
+            }
+
+            if(opens.length) {
+              const openDiv = document.getElementById('opens');
+              const openSpan = document.createElement('span');
+              openSpan.style.fontSize = '14px';
+              openSpan.style.display = 'inline';
+              openSpan.innerHTML = '<span style="font-size:16px;font-weight:bold;">&nbsp;' + opens.length + '</span> 個のお題が公開中！';
+              openDiv.appendChild(openSpan);
+              for(let i in opens) {
+                const anchor = document.createElement('a');
+                anchor.style.fontSize = '16px';
+                anchor.style.fontWeight = 'bold';
+                anchor.style.display = 'inline-block';
+                anchor.style.textDecoration = 'none';
+                anchor.style.margin = '0px 5px 15px 5px';
+                anchor.href = 'javascript:void(0)';
+                anchor.innerText = 'これ';//opens[i].sentence;
+                anchor.onclick = function() {
+                  const select = document.getElementById('odais');
+                  const ops = select.options;
+                  // console.log(opens[i].id);
+                  for(let j in ops) {
+                    // console.log(ops[i].value==opens[i].id);
+                    if(ops[j].value == opens[i]._id) {
+                      ops[j].selected = true;
+                      getOdaiInfo(select);
+                      break;
+                    }
+                  }
+                }
+                openDiv.appendChild(anchor);
+                if(i != opens.length - 1) {
+                  const spanTo = document.createElement('span');
+                  spanTo.style.fontSize = '14px';
+                  spanTo.style.fontWeight = 'bold';
+                  spanTo.innerText = 'と';
+                  openDiv.appendChild(spanTo);
+                }
+              }
+            }
+            getOdaiInfo(odais);
+          }else if(req.readyState == 4 && req.status != 200){
+            let opt = document.createElement('option');
+            opt.innerText = 'no entry';
+            odais.appendChild(opt);
+          }
+        };
+        req.open("GET", url, true);
+        req.setRequestHeader("Content-Type" , "application/json");
+        req.send();
+      }
+      
+      function getOdaiInfo(obj) {
+        let resultContainer = document.getElementById('result');
+        // 子要素を全て削除
+        while (resultContainer.firstChild) resultContainer.removeChild(resultContainer.firstChild);
+        let pInfo = document.createElement('p');
+        pInfo.innerText = 'Loading...';
+        resultContainer.appendChild(pInfo);
+
+        let idx = obj.selectedIndex;
+        odaiText = obj.options[idx].innerText;
+        let userId = obj.options[idx].createdBy;
+        let releasedDate = obj.options[idx].releasedDate;
+        let closedDate = obj.options[idx].closedDate;
+        let rest = obj.options[idx].rest;
+        let videoUrl = currentUrl = obj.options[idx].videoUrl;
+        videoEditedBy = obj.options[idx].videoEditedBy;
+        videoEditedAt = obj.options[idx].videoEditedAt;
+        targetOdai = obj.options[idx].id;
+
+        if(obj.options[idx].img) {
+          drawingImg = null;
+          changeDrawing();
+          document.getElementById('drawBtn').style.display = 'none';
+          drawingImg = null;
+
+          currentImg = obj.options[idx].img;
+          while (document.getElementById('photo').firstChild) document.getElementById('photo').removeChild(document.getElementById('photo').firstChild);
+          let img = document.createElement('img');
+          img.src = obj.options[idx].img;
+          img.onload = function() {
+            imW = this.width;
+            imH = this.height;
+            reflectText();
+          }
+          document.getElementById('photo').appendChild(img);
+          document.getElementById('photo').style.display = 'block';
+
+          document.getElementById('sp').style.verticalAlign = 'top';
+          document.getElementById('spContainer').style.verticalAlign = 'top';
+
+          if(isFirefox || isMobile) {
+            document.getElementById('sp_answer').style.fontSize = '11px';
+            document.getElementById('sp_answer').style.marginBottom = '0px';
+            document.getElementById('sp_answer').style.marginTop = '125px';
+          }else{
+            document.getElementById('sp_answer').style.fontSize = '22px';
+            document.getElementById('sp_answer').style.marginBottom = '20px';
+            document.getElementById('sp_answer').style.marginTop = '280px';
+          }
+        }else{
+          currentImg = null;
+          document.getElementById('drawBtn').style.display = 'inline';
+          document.getElementById('photo').style.display = 'none';
+
+          document.getElementById('sp').style.verticalAlign = 'middle';
+          document.getElementById('spContainer').style.verticalAlign = 'middle';
+
+          document.getElementById('sp_answer').style.marginTop = '0px';
+          if(isFirefox || isMobile) {
+            document.getElementById('sp_answer').style.fontSize = '16px';
+            document.getElementById('sp_answer').style.marginBottom = '-10px';
+          }else{
+            document.getElementById('sp_answer').style.fontSize = '32px';
+            document.getElementById('sp_answer').style.marginBottom = '-20px';
+          }
+        }
+
+        /*
+        try{
+          window.location.hash = ''+obj.options[idx].id;
+        }catch(e){
+        }
+        */
+
+        let user = obj.options[idx].user;
+        let location = user.location;
+        if(location) {
+          location = ' ' + location;
+        }else{
+          location = '';
+        }
+        let generation = user.generation;
+        if(generation) {
+          generation = ' ' + generation;
+        }else{
+          generation = '';
+        }
+        let gender = user.gender;
+        if(gender) {
+          gender = ' ' + gender;
+        }else{
+          gender = '';
+        }
+        let createdBy = location + generation + gender + ' ' + user.name;
+        document.getElementById('createdBy').innerText = '作成者：' + createdBy;
+        if(isMobile) {
+          document.getElementById('createdBy').style.fontSize = '13px';
+          document.getElementById('createdBy').appendChild(document.createElement('br'));
+        }
+        if(closedDate) {
+          let datestr = null;
+          if(closedDate > Date.now()) {
+            isOpen = true;
+            closedDate = new Date(closedDate);
+            datestr = closedDate.getFullYear() + '/' + formatFigure(closedDate.getMonth() + 1) + '/' + formatFigure(closedDate.getDate()) + ' ' + formatFigure(closedDate.getHours()) + '時' + formatFigure(closedDate.getMinutes()) + '分' + ' 締め切り予定';
+          } else {
+            isOpen = false;
+            closedDate = new Date(closedDate);
+            datestr = closedDate.getFullYear() + '/' + formatFigure(closedDate.getMonth() + 1) + '/' + formatFigure(closedDate.getDate()) + ' ' + formatFigure(closedDate.getHours()) + '時' + formatFigure(closedDate.getMinutes()) + '分' + ' 募集終了';
+          }
+          document.getElementById('info').innerText = datestr;
+        }else{
+          isOpen = true;
+          document.getElementById('info').innerText = '回答受付中';
+        }
+        if(videoUrl) {
+          document.getElementById('urlContainer').style.display = 'inline';
+          document.getElementById('anchorUrl').href = document.getElementById('anchorUrl').innerText = videoUrl;
+          // if(videoEditedBy) document.getElementById('spanUrl').innerText = 'edited by：' + videoEditedBy;
+        }else{
+          document.getElementById('urlContainer').style.display = 'none';
+          document.getElementById('anchorUrl').href = document.getElementById('anchorUrl').innerText = '';
+        }
+        document.getElementById('editUrl').onclick = function() {
+          checkUrl(targetOdai);
+        };
+
+        if(isMobile) {
+          document.getElementById('info').style.fontSize = '13px';
+        }
+        redraw();
+        reflectText();
+      }
+
+      function changeDrawing() {
+        if(drawingImg) {
+          let img = document.createElement('img');
+          img.onload = function() {
+            imW = this.width;
+            imH = this.height;
+            document.getElementById('spContainer').style.backgroundImage = 'url(' + drawingImg + ')';
+            document.getElementById('spContainer').style.backgroundRepeat = 'no-repeat';
+            document.getElementById('spContainer').style.backgroundPosition = 'center 30%';
+            if(!isFirefox && !isMobile) {
+              rubySize = 3;
+              document.getElementById('spContainer').style.backgroundSize = (imW * 0.98) + 'px ' + (imH * 0.98) + 'px';
+            }else{
+              rubySize = 6;
+              document.getElementById('spContainer').style.backgroundSize = (imW * 0.44) + 'px ' + (imH * 0.44) + 'px';
+            }
+          }
+          img.src = drawingImg;
+
+          document.getElementById('sp').style.verticalAlign = 'top';
+          document.getElementById('spContainer').style.verticalAlign = 'top';
+
+          if(isFirefox || isMobile) {
+            document.getElementById('sp_answer').style.fontSize = '11px';
+            document.getElementById('sp_answer').style.marginBottom = '0px';
+            document.getElementById('sp_answer').style.marginTop = '125px';
+          }else{
+            document.getElementById('sp_answer').style.fontSize = '22px';
+            document.getElementById('sp_answer').style.marginBottom = '20px';
+            document.getElementById('sp_answer').style.marginTop = '280px';
+          }
+        }else{
+          document.getElementById('spContainer').style.backgroundImage = '';
+          if(isFirefox || isMobile) {
+            rubySize = 6.3;
+          }else{
+            rubySize = 9;
+          }
+
+          document.getElementById('sp').style.verticalAlign = 'middle';
+          document.getElementById('spContainer').style.verticalAlign = 'middle';
+
+          document.getElementById('sp_answer').style.marginTop = '0px';
+          if(isFirefox || isMobile) {
+            document.getElementById('sp_answer').style.fontSize = '16px';
+            document.getElementById('sp_answer').style.marginBottom = '-10px';
+          }else{
+            document.getElementById('sp_answer').style.fontSize = '32px';
+            document.getElementById('sp_answer').style.marginBottom = '-20px';
+          }
+          reflectText()
+        }
+      }
+
+      function redraw() {
+        if(!userready || !odaiready) return;
+        
+        let selectOdais = document.getElementById('odais');
+        if(isMobile) selectOdais.style.width = '100%';
+        let idxOdai = selectOdais.selectedIndex;
+        let odaiId = selectOdais.options[idxOdai].id;
+        document.getElementById('sp_odai').innerText = selectOdais.options[idxOdai].sentence;
+
+        var url = './getuseranswers?userId=' + myId + '&odaiId=' + odaiId + '&d=' + Date.now();
+        //var results = document.getElementById('results');
+
+        let req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+
+        req.onreadystatechange = function(){
+          if(req.readyState == 4 && req.status == 200) {
+            answers = JSON.parse(req.response);
+            if(!answers || !answers.length) {
+              let resultContainer = document.getElementById('result');
+              while (resultContainer.firstChild) resultContainer.removeChild(resultContainer.firstChild);
+              return;
+            }
+
+            let numOfAns = 0;
+            if(answers.length) numOfAns = answers.length;
+
+            let hasVoted = false;
+            for(let key in answers) {
+              if(answers[key].voted) {
+                hasVoted = true;
+                break;
+              }
+            }
+
+            // ここで document.getElementById('result') で取得した DIV に結果を表示
+            let resultContainer = document.getElementById('result');
+            while (resultContainer.firstChild) resultContainer.removeChild(resultContainer.firstChild);
+
+            let table = document.createElement('table');
+            table.style.borderSpacing = '0px';
+            let rowColors = ['#E6E9FF', '#FFE9E6'];
+            let lockedNum = 0;
+            let unlockedNum = 0;
+            for(let key in answers) {
+              let ans = answers[key];
+              let tr = document.createElement('tr');
+              tr.id = 'tr_' + ans._id;
+              tr.style.backgroundColor = rowColors[key%2];
+              let tdRank = document.createElement('td');
+              tdRank.style.textAlign = 'center';
+              if(ans.rank) {
+                let spanRank = document.createElement('span');
+                spanRank.innerText = ans.rank + '位';
+                spanRank.style.whiteSpace = 'nowrap';
+                spanRank.style.width = '30px';
+                spanRank.style.fontWeight = 'bold';
+                spanRank.style.fontSize = '16px';
+                tdRank.appendChild(spanRank);
+              }
+              if(ans.voted || ans.voted == 0){
+                tdRank.appendChild(document.createElement('br'));
+                let spanVote = document.createElement('span');
+                spanVote.innerText = '　[' + ans.voted + '%]　';
+                spanVote.style.width = '30px';
+                spanVote.style.whiteSpace = 'nowrap';
+                spanVote.style.fontSize = '13px';
+                tdRank.appendChild(spanVote);
+              }
+              let tdSentence = document.createElement('td');
+              tdSentence.style.textAlign = 'center';
+              tdSentence.style.fontWeight = 'bold';
+              tdSentence.style.fontSize = '14px';
+              if(hasVoted) {
+                tdSentence.style.width = '350px';
+              }else{
+                tdSentence.style.width = '380px';
+              }
+
+              const rubySize = 8;
+              const rubyTag = '<ruby>$1<rt style="font-size:' + rubySize + 'px;margin-bottom:-3px;">$2</rt></ruby>';
+              const rubyMatch1 = /#(.+?)#\[(.+?)\]/g;
+              tdSentence.style.fontFamily = 'Arial, Verdana, Roboto, "メイリオ" , Meiryo';
+              tdSentence.style.lineHeight = '1.4em';
+              let ansHtml = ans.sentence;
+              if(ansHtml && (ansHtml.match(rubyMatch1)) && ansHtml.indexOf('[plain]') != 0) {
+                ansHtml = ansHtml.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                ansHtml = ansHtml.replace(rubyMatch1, rubyTag);
+                if(ansHtml.startsWith('[left]')){
+                  ansHtml = ansHtml.substring('[left]'.length);
+                  tdSentence.innerHTML = '<div style="text-align:left;display:inline-block;white-space:pre-line;max-width:340px;">' + ansHtml.replace(/\n/g, '<br/>') + '</div>';
+                }else if(ansHtml.startsWith('[right]')) {
+                  ansHtml = ansHtml.substring('[right]'.length);
+                  tdSentence.innerHTML = '<div style="text-align:right;display:inline-block;white-space:pre-line;max-width:340px;">' + ansHtml.replace(/\n/g, '<br/>') + '</div>';
+                }else{
+                  tdSentence.innerHTML = '<div style="text-align:center;display:inline-block;white-space:pre-line;max-width:340px;">' + ansHtml.replace(/\n/g, '<br/>') + '</div>';
+                }
+              }else if(ansHtml) {
+                ansHtml = ansHtml.replace(/\[plain\]/, '');
+                ansHtml = ansHtml.replace(/</g, '&lt;');
+                ansHtml = ansHtml.replace(/>/g, '&gt;');
+                if(ansHtml.startsWith('[left]')){
+                  ansHtml = ansHtml.substring('[left]'.length);
+                  tdSentence.innerHTML = '<div style="text-align:left;display:inline-block;white-space:pre-line;max-width:340px;">' + ansHtml.replace(/\n/g, '<br/>') + '</div>';
+                }else if(ansHtml.startsWith('[right]')) {
+                  ansHtml = ansHtml.substring('[right]'.length);
+                  tdSentence.innerHTML = '<div style="text-align:right;display:inline-block;white-space:pre-line;max-width:340px;">' + ansHtml.replace(/\n/g, '<br/>') + '</div>';
+                }else{
+                  tdSentence.innerHTML = '<div style="text-align:center;display:inline-block;white-space:pre-line;max-width:340px;">' + ansHtml.replace(/\n/g, '<br/>') + '</div>';
+                }
+              }
+
+              if(ans.img) {
+                const img = new Image();
+                img.onload = function() {
+                  const imWidth = img.width;
+                  const imHeight = img.height;
+                  tdSentence.style.backgroundImage = 'url(' + ans.img + ')';
+                  tdSentence.style.backgroundSize = 'auto 80px';
+                  tdSentence.style.backgroundPosition = '10px 10px';
+                  tdSentence.style.backgroundRepeat = 'no-repeat';
+                  tdSentence.style.padding = '0px 0px 0px ' + (imWidth * 80/imHeight + 20) + 'px';
+                }
+                img.src = ans.img;
+              }else{
+                tdSentence.style.padding = '5px 10px';
+              }
+              tdSentence.ondblclick = function() {
+                preview(this.innerText, true, ans.img);
+                getSelection().empty();
+              }
+              // tdSentence.style.padding = '5px 10px';
+              let tdInfo = document.createElement('td');
+              tdInfo.style.fontSize = '11px';
+              tdInfo.style.padding = '5px 10px';
+              let ansDate = new Date(ans.date);
+              let datestr = ansDate.getFullYear() + '/' + formatFigure(ansDate.getMonth() + 1) + '/' + formatFigure(ansDate.getDate()) + '\n' + formatFigure(ansDate.getHours()) + '時' + formatFigure(ansDate.getMinutes()) + '分';
+              if(!isMobile) tdInfo.innerText = datestr;
+              tr.appendChild(tdRank);
+              tr.appendChild(tdSentence);
+              tr.appendChild(tdInfo);
+
+              let tdEdit = document.createElement('td');
+              tdEdit.style.padding = '5px 10px';
+              let btnEdit = document.createElement('input');
+              btnEdit.type = 'button';
+              // btnEdit.style.fontWeight = 'bold';
+              btnEdit.style.color = '#063';
+              btnEdit.value = '編集';
+              btnEdit.className = 'over';
+              btnEdit.addEventListener('click', editAnswer(ans));
+              tdEdit.appendChild(btnEdit);
+              tdEdit.appendChild(document.createElement('br'));
+              let btnDel = document.createElement('input');
+              btnDel.type = 'button';
+              // btnDel.style.fontWeight = 'bold';
+              btnDel.style.color = '#C00';
+              btnDel.value = '削除';
+              btnDel.className = 'under';
+              btnDel.addEventListener('click', confDel(ans._id));
+              tdEdit.appendChild(btnDel);
+
+              let imLock = document.createElement('img');
+              if(ans.private) {
+                lockedNum++;
+//                tr.style.backgroundColor = '#666';
+//                tr.style.color = '#FFF';
+                if(navigator.userAgent.indexOf('iPhone') == -1 && navigator.userAgent.indexOf('iPad') == -1) {
+                  tr.style.filter = 'brightness(75%)';
+                }else{
+                  tr.style.backgroundColor = '#BBB';
+                }
+                imLock.src = lockedImage;
+                imLock.style.filter = 'drop-shadow(0px 0px 1px #FFFFFF)';
+                imLock.title = '公開する';
+                imLock.className = 'private';
+              }else{
+                unlockedNum++;
+                imLock.src = unlockedImage;
+                imLock.title = 'プライベートにする';
+                imLock.className = 'public';
+              }
+              imLock.style.width = '16px';
+              imLock.style.height = '20px';
+              imLock.style.display = 'block';
+              imLock.style.cursor = 'pointer';
+              imLock.style.margin = '15px 0px 10px 5px';
+              imLock.onclick = function() {
+                togglePrivate(this, ans._id, ans.private, tr, rowColors[key%2]);
+              }
+              tdEdit.appendChild(imLock);
+
+              tr.appendChild(tdEdit);
+
+              if(key != answers.length - 1) {
+                tdRank.style.borderBottom = '1px dotted #999';
+                tdSentence.style.borderBottom = '1px dotted #999';
+                tdInfo.style.borderBottom = '1px dotted #999';
+                tdEdit.style.borderBottom = '1px dotted #999';
+              }
+
+              table.appendChild(tr);
+            }
+            let resultHeader = document.createElement('p');
+            resultHeader.id = 'resultHeader';
+            resultHeader.style.fontSize = '14px';
+            resultHeader.style.fontWeight = 'bold';
+            resultHeader.style.marginBottom = '3px';
+            resultHeader.innerHTML = '送信済みの回答';
+            if(numOfAns) resultHeader.innerHTML += '：' + numOfAns + '件';
+            if(lockedNum) resultHeader.innerHTML += '<span style="font-size:12px;font-weight:normal;">（公開' + unlockedNum + '件／プライベート' + lockedNum + '件）</span>';
+            resultContainer.appendChild(resultHeader);
+            resultContainer.appendChild(table);
+
+          }
+        };
+        req.open("GET", url, true);
+        req.setRequestHeader("Content-Type" , "application/json");
+        req.send();
+      }
+
+      function updateAnswer(id, sentence) {
+        for(let i in answers) {
+          let ans = answers[i];
+          if(ans._id == id) {
+            answers[i].sentence = sentence;
+          }
+        }
+      }
+
+      let editWin = null;
+
+      function editAnswer(ans) {
+        let ansId = ans.id;
+        let odaiId = ans.odai_id;
+        let sentence = ans.sentence;
+        let locked = ans.private;
+        return function() {
+          let w = 400;
+          let h = 380;
+          if(navigator.userAgent.indexOf('Chrome') != -1){
+            w = 510;
+            if(navigator.userAgent.indexOf('OPR\/') != -1) {
+              w = 525;
+              h = 450;
+            }
+          }
+          localStorage.removeItem('tmpImg');
+          if(ans.img) localStorage.setItem('tmpImg', ans.img);
+          editWin = window.open('./edit_answer.html?ansId=' + ansId + '&odaiId=' + odaiId + '&sentence=' + encodeURIComponent(sentence) + '&odaiText=' + encodeURIComponent(odaiText) + '&private=' + locked + '&d=' + Date.now(), '_blank', 'width=' + w + ',height=' + h);
+        };
+      }
+
+      function togglePrivate(elem, id, isPrivate, tr, color) {
+        let url = './setprivate';
+
+        let req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+
+        req.onreadystatechange = function(){
+          if(req.readyState == 4 && req.status == 200) {
+            let result = eval(req.response);
+            redraw();
+          }else if(req.readyState == 4 && req.status != 200) {
+            alert(req.response);
+            if(isPrivate == true) {
+              if(navigator.userAgent.indexOf('iPhone') == -1 && navigator.userAgent.indexOf('iPad') == -1) {
+                tr.style.filter = 'brightness(75%)';
+              }else{
+                tr.style.backgroundColor = '#BBB';
+              }
+              elem.src = lockedImage;
+              elem.style.filter = 'drop-shadow(0px 0px 1px #FFFFFF)';
+              elem.title = '公開する';
+              elem.className = 'private';
+            }else{
+              if(navigator.userAgent.indexOf('iPhone') == -1 && navigator.userAgent.indexOf('iPad') == -1) {
+                tr.style.filter = 'brightness(100%)';
+              }else{
+                tr.style.backgroundColor = color;
+              }
+              elem.src = unlockedImage;
+              elem.title = 'プライベートにする';
+              elem.className = 'public';
+            }
+          }
+        };
+
+        req.onerror = function() {
+          alert('エラーが発生しました');
+        }
+
+        req.ontimeout = function() {
+          alert('接続できませんでした');
+        }
+
+        // redraw の前に見切り発車する
+        if(!isPrivate) {
+          if(navigator.userAgent.indexOf('iPhone') == -1 && navigator.userAgent.indexOf('iPad') == -1) {
+            tr.style.filter = 'brightness(75%)';
+          }else{
+            tr.style.backgroundColor = '#BBB';
+          }
+          elem.src = lockedImage;
+          elem.style.filter = 'drop-shadow(0px 0px 1px #FFFFFF)';
+          elem.title = '公開する';
+          elem.className = 'private';
+        }else{
+          if(navigator.userAgent.indexOf('iPhone') == -1 && navigator.userAgent.indexOf('iPad') == -1) {
+            tr.style.filter = 'brightness(100%)';
+          }else{
+            tr.style.backgroundColor = color;
+          }
+          elem.src = unlockedImage;
+          elem.title = 'プライベートにする';
+          elem.className = 'public';
+        }
+
+        req.open("POST", url, true);
+        req.send(JSON.stringify({targetId:id}));
+      }
+
+      function checkUrl(id) {
+        let url = './getodais?targetId=' + id + '&d=' + Date.now();
+        let req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+
+        req.onreadystatechange = function(){
+          if(req.readyState == 4 && req.status == 200) {
+            let odai = JSON.parse(req.response);
+            videoEditedBy = odai.videoEditedBy;
+            videoEditedAt = odai.videoEditedAt;
+            currentUrl = odai.videoUrl;
+
+            let obj = document.getElementById('odais');
+            for(let i in obj.options) {
+              if(obj.options[i].id == id) {
+                obj.options[i].videoUrl = currentUrl;
+                obj.options[i].videoEditedBy = videoEditedBy;
+                obj.options[i].videoEditedAt = videoEditedAt;
+                break;
+              }
+            }
+
+            setVideoUrl(id);
+          }else if(req.readyState == 4 && req.status != 200) {
+            alert(req.response);
+          }
+        };
+        req.open("GET", url, true);
+        req.send();
+      }
+
+      function setVideoUrl(id) {
+        let dateStr = '';
+        if(videoEditedAt) {
+          let editedAt = new Date(parseInt(videoEditedAt));
+          dateStr = editedAt.getFullYear() + '/' + formatFigure(editedAt.getMonth() + 1) + '/' + formatFigure(editedAt.getDate()) + ' ' + formatFigure(editedAt.getHours()) + '時' + formatFigure(editedAt.getMinutes()) + '分';
+        }
+        let message = '動画のURLを入力してください';
+        if(videoEditedBy) {
+          message += '\n\n最終更新：' + videoEditedBy;
+          if(videoEditedAt) message += ' [' + dateStr + ']';
+        }
+        let videoUrl = currentUrl? prompt(message, currentUrl): prompt(message);
+        if(videoUrl == null) return;
+        if(videoUrl == currentUrl) {
+          if(videoUrl) {
+            document.getElementById('urlContainer').style.display = 'inline';
+            document.getElementById('anchorUrl').href = document.getElementById('anchorUrl').innerText = videoUrl;
+          }else{
+            document.getElementById('urlContainer').style.display = 'none';
+            document.getElementById('anchorUrl').href = document.getElementById('anchorUrl').innerText = '';
+          }
+          return;
+        }
+
+        let url = './setvideourl';
+
+        let req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+
+        req.onreadystatechange = function(){
+          if(req.readyState == 4 && req.status == 200) {
+            if(videoUrl) {
+              document.getElementById('urlContainer').style.display = 'inline';
+              document.getElementById('anchorUrl').href = document.getElementById('anchorUrl').innerText = videoUrl;
+            }else{
+              document.getElementById('urlContainer').style.display = 'none';
+              document.getElementById('anchorUrl').href = document.getElementById('anchorUrl').innerText = '';
+            }
+            videoEditedAt = Date.now();
+            videoEditedBy = myName;
+            // document.getElementById('spanUrl').innerText = 'edited by：' + myName;
+            currentUrl = videoUrl;
+
+            let obj = document.getElementById('odais');
+            for(let i in obj.options) {
+              if(obj.options[i].id == id) {
+                obj.options[i].videoUrl = videoUrl;
+                obj.options[i].videoEditedBy = videoEditedBy;
+                obj.options[i].videoEditedAt = videoEditedAt;
+                break;
+              }
+            }
+          }else if(req.readyState == 4 && req.status != 200) {
+            alert(req.response);
+          }
+        };
+
+        req.open("POST", url, true);
+        req.send(JSON.stringify({targetId:id, videoUrl:videoUrl}));
+      }
+
+      function confDel(ansId) {
+        return function() {
+          var url = './getanswer?ansId=' + ansId +'&d=' + Date.now();
+          let req = prepareXMLHttpRequest();
+          if (req == null) {
+            alert('XMLHttpRequest is not supported');
+            return;
+          }
+          req.onreadystatechange = function(){
+            if(req.readyState == 4) {
+              if(req.status == 200) {
+                let answer = JSON.parse(req.response);
+                if(answer.editable) {
+                  delAnswer(ansId)();
+                }else{
+                  alert('この回答は削除できません。\n削除できるのは募集期間の回答だけです。');
+                }
+              }else{
+                alert(req.response);
+              }
+            }
+          };
+          req.open("GET", url, true);
+          req.setRequestHeader("Content-Type" , "text/plain");
+          req.send();
+        };
+      }
+
+      function delAnswer(ansId) {
+        return function() {
+          if(!confirm('削除しますか？')) return;
+          var url = './delete?d=' + Date.now();
+          let req = prepareXMLHttpRequest();
+          if (req == null) {
+            alert('XMLHttpRequest is not supported');
+            return;
+          }
+          req.onreadystatechange = function(){
+            if(req.readyState == 4) {
+              if(req.status == 200) {
+                redraw();
+              }else{
+                alert(req.response);
+              }
+            }
+          };
+          req.open("POST", url, true);
+          let data = {id: ansId};
+          req.setRequestHeader("Content-Type" , "text/plain");
+          req.send(JSON.stringify(data));
+        };
+      }
+
+      function addAns() {
+//        if(!targetOdai) {
+//          return;
+//        }
+        let ansContainer = document.getElementById('answers');
+        let anss = document.getElementsByClassName('ans');
+        let num = anss.length;
+        // alert(num);
+        let tainput = document.getElementById('tainput');
+
+        if(!tainput.value.replace(/\s+/g, '') && !drawingImg) return;
+        let currentAns = tainput.value;
+        
+        let elemId = 0;
+        for(var i = 0; i <= num; i++) {
+          if(!document.getElementById('ans' + i)) {
+            elemId = i;
+            break;
+          }
+        }
+        let ans = document.createElement('div');
+        ans.innerText = currentAns;
+        ans.style.width = '400px';
+        if(isMobile) ans.style.width = '90%';
+        ans.style.height = drawingImg ? '100px' : '45px';
+        ans.style.paddingLeft = drawingImg ? '320px' : '5px';
+        ans.style.color = '#666';
+        ans.style.overflow = 'auto';
+        ans.style.border = '2px dotted #BBB';
+        ans.style.backgroundColor = '#EEE';
+        ans.style.marginTop = '5px';
+        ans.style.fontSize = '13px';
+        ans.style.padding = '5px';
+        ans.style.display = 'inline-block';
+        ans.className = 'ans';
+        let removeBtn = document.createElement('input');
+        removeBtn.type = 'button';
+        removeBtn.style.position = 'relative';
+        removeBtn.style.width = '50px';
+        removeBtn.style.left = '-55px';
+        if(isMobile) removeBtn.style.left = '0px';
+        removeBtn.style.bottom = '8px';
+        if(isMobile) removeBtn.style.bottom = '20px';
+        removeBtn.value = '削除';
+        removeBtn.addEventListener('click', function() {
+          let target = document.getElementById('ans' + elemId);
+          target.parentNode.removeChild(target);
+        });
+        let p = document.createElement('div');
+        p.id = 'ans' + elemId;
+        p.className = 'ansdiv';
+        p.style.margin = '0px';
+        if(drawingImg) {
+          const imgAns = document.createElement('img');
+          imgAns.className = 'imgAns';
+          imgAns.src = drawingImg;
+          imgAns.height = 80;
+          imgAns.style.display = 'none';
+          ans.appendChild(imgAns);
+          ans.style.backgroundImage = 'url(' + drawingImg + ')';
+          ans.style.backgroundSize = 'auto 90px';
+          ans.style.backgroundPosition = '5px 5px';
+          ans.style.backgroundRepeat = 'no-repeat';
+          delDrawing();
+        }
+        p.appendChild(ans);
+        p.appendChild(removeBtn);
+        ansContainer.appendChild(p);
+        
+        tainput.value = '';
+        tainput.focus();
+        document.getElementById('sp_answer').innerHTML = '';
+      }
+
+      function checkSend() {
+        let sendBtn = document.getElementById('sendBtn');
+
+        let anss = [];
+        let ansElements = document.getElementsByClassName('ans');
+        let tainput = document.getElementById('tainput');
+        if(!ansElements.length && !tainput.value.replace(/\s+/g, '') && !drawingImg) {
+          return;
+        }
+
+        if(!targetOdai) {
+          alert('お題が選択されていません。');
+          return;
+        }
+
+        let odais = document.getElementById('odais');
+        let idx = odais.selectedIndex;
+        isOpen = odais.options[idx].releasedDate < Date.now();
+        if(odais.options[idx].closedDate) {
+          isOpen = (isOpen && (Date.now() < odais.options[idx].closedDate));
+        }
+        let rest = odais.options[idx].rest;
+
+        if(!allowAfterClosed && !isOpen && !rest) {
+          //ボタンがクリックされたらダイアログを表示する
+          dialog.style.display = 'block';
+
+          // はいの処理
+          dlg_yes.addEventListener('click', doSend);
+
+          // いいえの処理
+          dlg_no.addEventListener('click', hideDialog);
+        }else{
+          doSend();
+        }
+      }
+
+      function hideDialog() {
+        dialog.style.display = 'none';
+      }
+
+      function doSend() {
+        if(!myId) {
+          alert('ログインし直してください');
+          return;
+        }
+        dialog.style.display = 'none';
+
+        let sendBtn = document.getElementById('sendBtn');
+
+        let odais = document.getElementById('odais');
+        let idx = odais.selectedIndex;
+        let rest = odais.options[idx].rest;
+        isOpen = Date.now() < odais.options[idx].closedDate;
+
+        let url = './answer';
+
+        let req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+
+        sendBtn.disabled = true; // 連打対策
+
+        req.onreadystatechange = function(){
+          if(req.readyState == 4 && req.status == 200) {
+            if(!req.response) return;
+            let ansdivs = document.getElementsByClassName('ansdiv');
+            for(let i = ansdivs.length - 1; i >= 0; i--) {
+              ansdivs[i].parentNode.removeChild(ansdivs[i]);
+            }
+            let tainput = document.getElementById('tainput');
+            tainput.value = '';
+            tainput.focus();
+            document.getElementById('sp_answer').innerHTML = '';
+            showMessage('送信しましたー');
+            sendBtn.disabled = false;
+            delDrawing();
+            redraw();
+          }else if(req.readyState == 4 && req.status != 200){
+            alert(req.response);
+            sendBtn.disabled = false;
+          }
+        };
+        
+        req.onerror = function() {
+          alert('エラーが発生しました');
+          sendBtn.disabled = false;
+        }
+        
+        req.ontimeout = function() {
+          alert('接続できませんでした');
+          sendBtn.disabled = false;
+        }
+        
+        let anss = [];
+        let ansElements = document.getElementsByClassName('ans');
+        // for(let i = 0; i < ansElements.length; i++) {
+        //   if(ansElements[i].innerText.replace(/\s+/g, '')) {
+        //     anss.push(ansElements[i].innerText);
+        //   }
+        // }
+        for(let i = 0; i < ansElements.length; i++) {
+          let ansObj = {};
+          for(let j in ansElements[i].childNodes) {
+            if(ansElements[i].childNodes[j] && ansElements[i].childNodes[j].src) {
+              // console.log(ansElements[i].childNodes[j].src);
+              ansObj.img = ansElements[i].childNodes[j].src;
+              break;
+            }
+          }
+          if(ansElements[i].innerText.replace(/\s+/g, '')) {
+            ansObj.sentence = ansElements[i].innerText;
+            // anss.push(ansElements[i].innerText);
+          }
+          if(ansObj.sentence || ansObj.img) {
+            anss.push(ansObj);
+          }
+        }
+        
+        let tainput = document.getElementById('tainput');
+        // if(tainput.value.replace(/\s+/g, '')) {
+        //   anss.push(tainput.value);
+        // }
+        if(tainput.value.replace(/\s+/g, '') || drawingImg) {
+          let ansObj = {};
+          if(drawingImg) ansObj.img = drawingImg;
+          if(tainput.value) ansObj.sentence = tainput.value;
+          anss.push(ansObj);
+        }
+
+        if(!anss.length) {
+          sendBtn.disabled = false;
+          return;
+        }
+        
+        if(!targetOdai) {
+          alert('お題が選択されていません。');
+          sendBtn.disabled = false;
+          return;
+        }
+        req.open("POST", url, true);
+        let data = {answers: anss, odai_id: targetOdai, user_id: myId};
+        req.setRequestHeader("Content-Type" , "text/plain");
+        console.log(JSON.stringify(data));
+        req.send(JSON.stringify(data));
+      }
+      
+      function formatFigure(num) {
+        num += '';
+        if (num.length === 1) {
+          num = '0' + num;
+        }
+        return num;     
+      }
+
+      function preview(sentence, focus, img) {
+        let odais = document.getElementById('odais');
+        let odai = '';
+        if(odais.options.length) odai = odais.options[odais.selectedIndex].sentence;
+        let ans = document.getElementById('tainput').value;
+        if(sentence) ans = sentence;
+        // IE は子ウィンドウを閉じても dispWin が null にならず、location や document へのアクセスは拒否される
+        // if(dispWin && dispWin.location && dispWin.document && !dispWin.closed) {
+        if(dispWin && !dispWin.closed) {
+          // dispWin.location.href = './display?odai=' + odai;
+          if(drawingImg) {
+            dispWin.show(odai, drawingImg, encodeURIComponent(ans));
+          }else if(img) {
+            dispWin.show(odai, img, encodeURIComponent(ans));
+          }else {
+            dispWin.show(odai, currentImg, encodeURIComponent(ans));
+          }
+        }else{
+          if(img) {
+            localStorage.setItem('drawing', img);
+          }else if(drawingImg) {
+            localStorage.setItem('drawing', drawingImg);
+          }
+          let query = '';
+          if(odai) query += 'odai=' + encodeURIComponent(odai);
+          if(targetOdai) query += '&odaiId=' + targetOdai;
+          // if(currentImg) query += '&img=' + encodeURIComponent(currentImg);
+          if(ans) query += '&answer=' + encodeURIComponent(ans);
+          dispWin = window.open('./display?' + query + '&d=' + Date.now(), 'disp', 'width=840,height=350');
+        }
+        if(focus) dispWin.focus();
+      }
+
+      function setNull() {
+        dispWin = null
+      }
+
+      function simplePreview(sentence, focus) {
+        let odais = document.getElementById('odais');
+        let odai = '';
+        if(odais.options.length) odai = odais.options[odais.selectedIndex].sentence;
+        let ans = document.getElementById('tainput').value;
+        if(sentence) ans = sentence;
+        document.getElementById('sp_odai').innerText = odai;
+
+        if(currentImg) {
+          document.getElementById('spContainer').style.backgroundImage = 'url(' + currentImg + ')';
+          document.getElementById('spContainer').style.backgroundRepeat = 'no-repeat';
+          document.getElementById('spContainer').style.backgroundPosition = 'center 30%';
+          if(!isFirefox && !isMobile) {
+            rubySize = 3;
+            document.getElementById('spContainer').style.backgroundSize = (imW * 0.98) + 'px ' + (imH * 0.98) + 'px';
+          }else{
+            rubySize = 6;
+            document.getElementById('spContainer').style.backgroundSize = (imW * 0.44) + 'px ' + (imH * 0.44) + 'px';
+          }
+        }else if(drawingImg) {
+          let img = document.createElement('img');
+          img.onload = function() {
+            imW = this.width;
+            imH = this.height;
+            document.getElementById('spContainer').style.backgroundImage = 'url(' + drawingImg + ')';
+            document.getElementById('spContainer').style.backgroundRepeat = 'no-repeat';
+            document.getElementById('spContainer').style.backgroundPosition = 'center 30%';
+          }
+          img.src = drawingImg;
+          if(!isFirefox && !isMobile) {
+            rubySize = 3;
+            document.getElementById('spContainer').style.backgroundSize = (imW * 0.98) + 'px ' + (imH * 0.98) + 'px';
+          }else{
+            rubySize = 6;
+            document.getElementById('spContainer').style.backgroundSize = (imW * 0.44) + 'px ' + (imH * 0.44) + 'px';
+          }
+        }else{
+          if(isFirefox || isMobile) {
+            rubySize = 6.3;
+          }else{
+            rubySize = 9;
+          }
+          document.getElementById('spContainer').style.backgroundImage = '';
+        }
+
+        const ansBox = document.createElement('p');
+        ansBox.style.display = 'inline-block';
+        ansBox.style.margin = '0px';
+        ansBox.style.padding = '0px';
+        if(ans.startsWith('[left]')){
+          ans = ans.substring('[left]'.length);
+          ansBox.style.textAlign = 'left';
+        }else if(ans.startsWith('[right]')) {
+          ans = ans.substring('[right]'.length);
+          ansBox.style.textAlign = 'right';
+        }else{
+          ansBox.style.textAlign = 'center';
+        }
+        while(document.getElementById('sp_answer').firstChild) document.getElementById('sp_answer').removeChild(document.getElementById('sp_answer').firstChild);
+
+        let rubyMatch = /#(.+?)#\[(.+?)\]/g;
+        let rubyTag = '<ruby>$1<rt style="font-size:' + rubySize + 'px;margin-bottom:-3px;">$2</rt></ruby>';
+        if(ans.match(rubyMatch) && ans.indexOf('[plain]') != 0) {
+          ans = ans.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          ans = ans.replace(rubyMatch, rubyTag);
+          ansBox.innerHTML = ans.replace(/\n/g, '<br/>');
+        }else{
+          ansBox.innerText = ans.replace(/\[plain\]/, '');
+        }
+        document.getElementById('sp_answer').appendChild(ansBox);
+      }
+
+      function prepareXMLHttpRequest() {
+        if (window.XMLHttpRequest) {
+          return new XMLHttpRequest();
+        } else if (window.ActiveXObject) {
+          return new ActiveXObject("Microsoft.XMLHTTP");
+        }
+        return null;
+      }
+
+      function movePage(select) {
+        location.href = select.options[select.selectedIndex].value;
+      }
+
+      function getGraphData(userId) {
+        document.getElementById('userHistory').innerHTML = '直近 ' + resultLimit + ' 回の成績&nbsp;&nbsp;<a href="/graph_outer?userId=' + myId + '" style="text-decoration:none; font-weight:normal; font-size:13px; color:#00F;">全部見る</a>';
+
+        var url = './getgraphdata?d=' + Date.now() + '&limit=' + resultLimit;
+
+        let req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+
+        req.onreadystatechange = function(){
+          if(req.readyState == 4 && req.status == 200) {
+            obj = JSON.parse(req.response);
+            if(isMobile) document.getElementById('graphContainer').style.width = '92%';
+            drawGraph(obj);
+          }else if(req.readyState == 4 && req.status != 200){
+          }
+        };
+        req.open("GET", url, true);
+        req.setRequestHeader("Content-Type" , "application/json");
+        req.send();
+      }
+
+      function overTwo(userId) {
+        let url = './overtwo';
+        let req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+        req.onreadystatechange = function(){
+          if(req.readyState == 4 && req.status == 200) {
+            if(eval(req.response) == true) {
+              getGraphData(userId);
+            }
+          }
+        }
+        req.open("GET", url, true);
+        req.setRequestHeader("Content-Type" , "application/json");
+        req.send();
+      }
+
+      function drawGraph(obj) {
+        if(!isMobile && !isFirefox) {
+          //document.getElementById('zoomRange').style.display = 'block';
+          //document.getElementById('graphContainer').style.marginTop = '0px';
+        }
+        config = {
+          type: 'line',
+          data:
+          {
+            labels:[],
+            datasets:
+            [
+              {
+                fill: false,
+                backgroundColor: '#DB514E',
+                borderWidth: 3,
+                borderColor: 'rgba(201,60,58,0.8)',
+                pointBorderColor: '#fff',
+                pointBackgroundColor: 'rgba(201,60,58,0.8)',
+                pointBorderWidth: 2,
+                pointRadius:8,
+                pointHoverRadius: 12,
+                pointHoverBackgroundColor: '#9A1B19',
+                pointHoverBorderColor: '#fff',
+                pointHoverBorderWidth: 2,
+                tension: 0
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            animation: false,
+            responsiveAnimationDuration: 0,
+            legend: {
+              display: false
+            },
+            scales: {
+              xAxes: [{
+                display: true,
+                scaleLabel: {
+                  display: false,
+                  labelString: 'お題',
+                  fontFamily: 'monospace',
+                  fontSize: 14
+                },
+                ticks: {
+                  display: false, // 無い方がいいか？
+                  autoSkip: false,
+                  fontSize: 11,
+                  callback: function(value){
+                    return value+'';
+                  }
+                },
+                stacked: false,
+                gridLines: {
+                  display: true
+                }
+              }],
+              yAxes: [{
+                display: true,
+                scaleLabel: {
+                  display: false,
+                  labelString: '順位',
+                  fontFamily: 'monospace',
+                  fontSize: 14
+                },
+                ticks: {
+                  reverse: true,
+                  fontSize: 12,
+                  fontStyle: 'bold',
+                  min: 1,
+                  max: 10,
+                  stepSize:1,
+                  callback: function(value){
+                    if(value > 9) return '選外';
+                    return value+'位';
+                  }
+                },
+                gridLines: {
+                  display: true
+                }
+              }]
+            },
+            layout: {             //レイアウト
+                padding: {        //余白設定 （responsive が true だと効かない）
+                    left: 0,
+                    right: 0,
+                    top: 0,
+                    bottom: 0
+                }
+            },
+            tooltips: {
+              bodyFontSize: 14,
+              callbacks: {
+                label: function(tooltipItem, data) {
+                  let label = '';
+                  if(tooltipItem.yLabel < 10) {
+                    label += '\n【' + tooltipItem.yLabel + '位】\n' + config.data.datasets[tooltipItem.datasetIndex].bestAnswers[tooltipItem.index];
+                  }else{
+                    label += '【選外】';
+                  }
+                  return label;
+                }
+              }
+            }
+          }
+        };
+        config.data.datasets[0].label = 'unko';
+        let ranks = [];
+        let bests = [];
+
+        for(let i = 0; i < obj.length; i++) {
+          config.data.labels.push(obj[i].odai);
+        }
+        for(let i = 0; i < obj.length; i++) {
+          if(obj[i].best) {
+            ranks.push(obj[i].best.rank);
+            bests.push(obj[i].best.sentence);
+          }else{
+            ranks.push(10);
+            bests.push('');
+          }
+        }
+        config.data.datasets[0].data = ranks;
+        config.data.datasets[0].bestAnswers = bests;
+        document.getElementById('graphContainer').style.display = 'block';
+        let ctx = document.getElementById('stage').getContext('2d');
+        if(!isMobile) ctx.canvas.height = '1px';
+        window.myLine = new Chart(ctx, config);
+      }
+
+      function changeGraphZoom(val) {
+        let elem = document.getElementById('stage');
+        // elem.style.zoom = val/100;
+        
+        let container = document.getElementById('graphContainer');
+        container.style.width = val + '%';
+
+        window.myLine.resize(false);
+        window.myLine.update();
+
+        /*
+        elem.style.MozTransform = 'scale(' + val/100 + ',' + val/100 + ')';
+        */
+
+        /*
+        if(!isFirefox) {
+          elem.style.zoom = val/100;
+        }else {
+          elem = document.getElementById('graphContainer');
+          elem.style.MozTransform = 'scale(' + val/100 + ')';
+          let sx = document.body.clientWidth * 1.0;
+          let sy = document.body.clientHeight * 1.0;
+          let a = val/100;
+          elem.style.position = 'relative';
+          elem.style.left = '-' + ((sx-sx*a)/2.0) + 'px';
+          elem.style.top = '-'+((sy-sy*a)/4.1)+'px';
+          elem.style.MozTransform = 'scale(' + a + ')';
+        }
+        */
+      }
+
+      function changeGraphWidth(val) {
+        document.getElementById('object_graph').style.width = val + '%';
+      }
+
+      function reflectText() {
+        checkJustifications();
+        changeRubyVisibility();
+        // if(dispWin) preview(undefined, false);
+        simplePreview();
+        if(dispWin && !dispWin.closed) preview(undefined, false);
+      }
+
+      function changeHelp(show) {
+        if(show != undefined) {
+          showHelp = show;
+        }else{
+          showHelp = !showHelp;
+        }
+        localStorage.setItem('showHelp_toshitoko', showHelp);
+        if(showHelp) {
+          document.getElementById('helpContainer').style.display = 'block';
+          document.getElementById('helpExpander').innerHTML = '&nbsp;▲&nbsp;ヘルプ';
+          document.getElementById('helpExpander').style.marginBottom = '0px';
+        }else{
+          document.getElementById('helpContainer').style.display = 'none';
+          document.getElementById('helpExpander').innerHTML = '&nbsp;▼&nbsp;ヘルプ';
+          document.getElementById('helpExpander').style.marginBottom = '15px';
+        }
+      }
+
+      function changePreview(show) {
+        if(show != undefined) {
+          showPrev = show;
+        }else{
+          showPrev = !showPrev;
+        }
+        localStorage.setItem('showPrev_toshitoko', showPrev);
+        if(showPrev) {
+          document.getElementById('spContainer').style.display = 'block';
+          document.getElementById('spExpander').innerHTML = '&nbsp;▲&nbsp;プレビュー';
+        }else{
+          document.getElementById('spContainer').style.display = 'none';
+          document.getElementById('spExpander').innerHTML = '&nbsp;▼&nbsp;プレビュー';
+        }
+      }
+
+      function changeRubyVisibility() {
+        if(!isMobile) return; // モバイル向けのみの機能とする？
+
+        let target = document.getElementById('tainput');
+        let pos = getRange(target);
+
+        let val = target.value;
+        let range = val.slice(pos.start, pos.end);
+
+        // console.log(range + ':' + pos.start + ':' + pos.end);
+        if (range || pos.start != pos.end) {
+          document.getElementById('rubyBtn').disabled = false;
+        }else{
+          document.getElementById('rubyBtn').disabled = true;
+        }
+      }
+
+      function makeRuby() {
+        let target = document.getElementById('tainput');
+        let pos = getRange(target);
+
+        let val = target.value;
+        let range = val.slice(pos.start, pos.end);
+        let beforeNode = val.slice(0, pos.start);
+        let afterNode  = val.slice(pos.end);
+        let insertNode;
+
+        if (range || pos.start != pos.end) {
+          let ruby = prompt('振り仮名を入力してください');
+          if(!ruby) return;
+          insertNode = '#' + range + '#[' + ruby + ']';
+//          insertNode = '[' + range + '/' + ruby + ']';
+          target.value = beforeNode + insertNode + afterNode;
+        }
+        simplePreview();
+      }
+
+      function getRange(obj) {
+        let pos = new Object();
+
+        if (navigator.userAgent.indexOf('Trident') != -1 || navigator.userAgent.indexOf('Edge') != -1) {
+          obj.focus();
+          let range = document.selection.createRange();
+          let clone = range.duplicate();
+
+          clone.moveToElementText(obj);
+          clone.setEndPoint( 'EndToEnd', range );
+
+          pos.start = clone.text.length - range.text.length;
+          pos.end   = clone.text.length - range.text.length + range.text.length;
+        }else if(window.getSelection()) {
+          pos.start = obj.selectionStart;
+          pos.end   = obj.selectionEnd;
+        }
+
+        return pos;
+      }
+
+      function setImage() {
+        return new Promise((resolve) => {
+          drawingImg = localStorage.getItem('drawing');
+          if(!drawingImg) resolve(1);
+
+          const img = document.createElement('img');
+          img.onload = function() {
+            const limitW = 480;
+            const limitH = 240;
+            const sendCanvas = document.createElement('canvas');
+            if(img.width/limitW > img.height/limitH) {
+              sendCanvas.width = limitW;
+              sendCanvas.height = img.height * (limitW/img.width);
+            }else{
+              sendCanvas.height = limitH;
+              sendCanvas.width = img.width * (limitH/img.height);
+            }
+
+            const sendCtx = sendCanvas.getContext('2d');
+            sendCtx.strokeStyle = '#000';
+
+            sendCtx.drawImage(img, 0, 0, img.width, img.height, 0, 0, sendCanvas.width, sendCanvas.height);
+            const resizedImg = sendCanvas.toDataURL('image/jpeg', 0.3);
+            if(!resizedImg) resolve(2);
+
+            drawingImg = resizedImg;
+            changeDrawing();
+
+            // alert('コンソール出力');
+            // console.log(savedImg);
+            document.getElementById('drawing').src = resizedImg;
+            document.getElementById('drawContainer').style.display = 'block';
+            localStorage.removeItem('drawing');
+            resolve(0);
+          }
+          img.src = drawingImg;
+        })
+      }
+
+      function delDrawing() {
+        document.getElementById('drawContainer').style.display = 'none';
+        drawingImg = null;
+        changeDrawing();
+      }
+
+      const justifications = ['left', 'right'];
+
+      function changeJustification(num) {
+        const ta = document.getElementById('tainput');
+        const targetStr = '[' + justifications[num] + ']';
+
+        const jBtns = document.getElementsByClassName('jBtn');
+        for(let i in jBtns) {
+          if(jBtns[i].style) jBtns[i].style.borderColor = '#999';
+        }
+
+        for(let i in justifications) {
+          if(!ta.value.startsWith(targetStr) && ta.value.startsWith('[' + justifications[i] + ']')) {
+            ta.value = ta.value.substring(('[' + justifications[i] + ']').length);
+          }
+        }
+
+        if(ta.value.startsWith(targetStr)) {
+          ta.value = ta.value.substring(targetStr.length);
+          document.getElementById('justification_' + justifications[num]).style.borderColor = '#999';
+        }else{
+          ta.value = targetStr + ta.value;
+          document.getElementById('justification_' + justifications[num]).style.borderColor = '#F00';
+        }
+        reflectText();
+      }
+
+      function checkJustifications() {
+        const ta = document.getElementById('tainput');
+
+        for(let i in justifications) {
+          if(ta.value.startsWith('[' + justifications[i] + ']')) {
+            document.getElementById('justification_' + justifications[i]).style.borderColor = '#F00';
+          }else{
+            document.getElementById('justification_' + justifications[i]).style.borderColor = '#999';
+          }
+        }
+      }
+    </script>
+    <style>
+a:link {
+  color: blue;
+}
+a:visited {
+  color: blue;
+}
+a:hover {
+  color: #99F;
+}
+a:active {
+  color: #99F;
+}
+#tainput {
+  border:1px solid #999;
+}
+#dialog {
+  position: absolute;
+  top: 0px;
+  right: 0px;
+  bottom: 0px;
+  left: 0px;
+  display: none;
+  font-size: 14px;
+  width: 250px;
+  height: 100px;
+  background-color: #FFF;
+  margin: auto;
+  padding: 30px 20px;
+  text-align: center;
+  border: 1px solid #aaa;
+  box-shadow: 4px 4px 4px #333;
+  vertical-align: middle;
+}
+div.ans {
+  border: 1px solid #999;
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.under {
+  -moz-border-radius: 0px 0px 8px 8px; /* for Firefox */
+  -webkit-border-radius: 0px 0px 8px 8px; /* for Chrome */
+  border-radius: 0px 0px 8px 8px;
+}
+.over {
+  -moz-border-radius: 8px 8px 0px 0px; /* for Firefox */
+  -webkit-border-radius: 8px 8px 0px 0px; /* for Chrome */
+  border-radius: 8px 8px 0px 0px;
+}
+table {
+  border: 1px solid #999;
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+table thead th,
+table tbody th,
+table tbody td {
+  padding: .6em 3em;
+  border-bottom: 1px solid #999;
+}
+table thead th {
+}
+table tbody th {
+}
+table thead th + th,
+table tbody td {
+  border-left: 1px solid #999;
+}
+table tbody tr:last-child th,
+table tbody tr:last-child td {
+  border-bottom: none;
+}
+.adminBtn {
+  width:120px;
+  background-image: linear-gradient(0deg, #DEDEDE, #eaf6fd); /* グラデーション */
+  border: 1px solid #6c6c6c; /* 枠線 */
+  border-radius: 0.3em;      /* 角丸 */
+}
+    </style>
+  </head>
+  <body style="background-color:#EDF6FF;">
+    <div>
+      <span id="links">
+        <a href="./result">結果参照</a> | <a href="./answer">回答する</a> | <a href="./sendodai">お題投稿</a> | <a href="./editprofile">ユーザ情報変更</a> | <a href="./logout">ログアウト</a><br/>
+        <!-- <input type="button" class="adminBtn" value="お題選択" onclick="window.location.href='./admin?mode=selectOdai'"/> --><input type="button" class="adminBtn" value="回答評価" onclick="window.location.href='./admin?mode=eval'"/><input type="button" class="adminBtn" value="お題属性変更" onclick="window.location.href='./editodai'"/><input type="button" class="adminBtn" value="データ管理" onclick="window.open('./admin?mode=backup', 'manageData', 'width=480,height=320')"/><input type="button" class="adminBtn" value="パスワード再発行" onclick="window.open('./admin?mode=makepw', 'makepw', 'width=540,height=240')"/>
+      </span>
+    </div>
+    <h1 id="welcome" style="font-size:20px;">&nbsp;</h1>
+    
+    <div id="opens"></div>
+    <select id="odais" onchange="getOdaiInfo(this)" style="max-width:500px;">
+    </select><br/>
+    <div id="photo" style="display:none;"></div>
+    <span id="createdBy" style="color:#666;"></span>
+    <span id="info" style="color:#F66;"></span>
+
+    <div>
+      <div id="urlContainer" style="display:none;">
+        <a id="anchorUrl" href="" style="margin-right:10px;font-size:14px;letter-spacing:-0.05em;"></a>
+        <!-- span id="spanUrl" style="margin-right:10px;font-size:12px;"></span -->
+      </div>
+      <input id="editUrl" type="button" value="URL 編集" style="background-image: linear-gradient(0deg, #DEDEDE, #EAF6FD); border: 1px solid #9C9C9C; border-radius: 0.5em;"/>
+    </div>
+
+    <div id="answers" style="margin-top:20px;">
+      <div id="helpExpander" style="cursor:pointer;font-size:12px;color:#666;display:block;position:relative;width:375px;background-color:#F9F9F9;padding:3px 0px;text-align:left;border:1px solid #000;border-radius:3px 3px 0px 0px;" onclick="changeHelp()">&nbsp;▲&nbsp;ヘルプ</div>
+      <div id="helpContainer" style="display:none;overflow:auto;position:relative;top:-2px;width:375px;height:157.5px;font-family:Arial, Verdana, Roboto, メイリオ, Meiryo; background-color:#EEE;padding:0px;border:1px solid #000;margin-bottom:15px;">
+        <p style="font-size:14px;margin:10px 0px -12px -5px;font-weight:bold;">【 回答の方法 】</p><p style="font-size:12px;padding:0px 5px;">上のセレクトボックスからお題を選択し、テキストエリアに回答を記入します。その状態で「<span style="font-weight:bold;">送信</span>」ボタンを押すと送信します。<br/>また、「<span style="font-weight:bold;">追加</span>」ボタンで回答をストックしてから「<span style="font-weight:bold;">送信</span>」で、複数回答をまとめて送信することもできます。</p>
+        <p style="font-size:14px;margin:10px 0px -12px -5px;font-weight:bold;">【 ルビ（振り仮名）機能 】</p><p style="font-size:12px;padding:0px 5px;">半角 <span style="font-weight:bold;">#</span> で囲った文字の直後に、半角の "<span style="font-weight:bold;">[</span>" と "<span style="font-weight:bold;">]</span>" で囲む形で回答にルビを振ることができます。例：#襞#[ひだ] → <ruby>襞<rt>ひだ</rt></ruby><br/>ルビ機能の詳細は<a href="javascript:void(0);" onclick="window.open('./practice_answer.html?d=' + Date.now(), '_blank', 'width=480,height=480');return false;" style="text-decoration:none;">こちら</a>（別ウィンドウ）。</p>
+        <p style="font-size:14px;margin:10px 0px -12px -5px;font-weight:bold;">【 プライベート機能 】</p><p style="font-size:12px;padding:0px 5px;">錠前アイコンをクリックしてロックした状態にすると、その回答は自分にしか見えなくなります。管理者にも見えないため、<span style="font-weight:bold;">評価対象からは除外</span>されます。再度クリックすると公開状態に戻ります。</p>
+        <p style="font-size:14px;margin:10px 0px -12px -5px;font-weight:bold;">【 お絵描き機能 】</p><p style="font-size:12px;padding:0px 5px;">文章お題に対してのみ、絵による回答が可能です。回答入力ボックスの右側にあるボタンをクリックするとお絵描きウィンドウを開きます。絵を描いたら「完了」ボタンを押すと回答に反映します。<br/><span style="font-size:10px;">※一部のペンタブレットでは動作しないという報告をいただきました。絵が描けないかたは環境を<a href="https://twitter.com/Drill_into_CEO">Drill_into_CEO</a>までご連絡いただけると対応する可能性があります。</span></p>
+        <p style="font-size:14px;margin:10px 0px -12px -5px;font-weight:bold;">【 位置揃え機能 】<span style="color:#F00;font-size:11px;">2019/09/06 NEW</span></p><p style="font-size:12px;padding:0px 5px;">複数行にわたる回答を 左寄せ／右寄せ に設定する機能を追加しました。<br/>回答の先頭に [left] と書くと左寄せ、[right] と書くと右寄せとなります。<br/>回答入力ボックス下部のボタンでも切り替え可能です。</p>
+      </div>
+      <input type="button" id="odaiselectbtn" value="お題選択" style="display:none;"/><span id="odaispan" style="display:none;font-size:13px;"></span>
+
+      <div id="spExpander" style="cursor:pointer;font-size:12px;color:#660;display:block;position:relative;width:375px;background-color:#FFB;padding:3px 0px;text-align:left;border:1px solid #000;border-radius:3px 3px 0px 0px;" onclick="changePreview()">&nbsp;▲&nbsp;プレビュー</div>
+      <div id="spContainer" style="display:block;overflow:hidden;position:relative;top:-2px;width:375px;height:157.5px;font-family:Arial, Verdana, Roboto, メイリオ, Meiryo; background-color:#FF9;padding:0px;border:1px solid #000;">
+        <div id="sp_odai" style="position:relative; top:4.5px; left:5px; font-size:9px; line-height:130%; font-weight:bold;height:6.75px;"></div>
+        <div id="sp" style="position:relative;overflow:hidden;top:-6.75px;width:375px;height:157.5px;font-family:Arial, Verdana, Roboto, メイリオ, Meiryo; display: table-cell; text-align: center; vertical-align: middle;">
+          <div id="sp_answer" style="overflow:hidden;margin-bottom:-6.75px; line-height:1.2em; word-break: break-all; width:100%; text-align:center; vertical-align:middle; font-size:14.4px; font-weight:bold;"></div>
+        </div>
+      </div>
+
+      <div style="white-space:nowrap;overflow:hidden;vertical-align:top;">
+        <div id="taContainer" style="position:relative;">
+          <textarea id="tainput" placeholder="回答" cols="70" rows="3" oninput="reflectText()" onchange="reflectText()" onselectionchange="changeRubyVisibility()" style="width:100%;height:80px;padding-right:36px;"></textarea>
+          <button id="drawBtn" onclick="window.open('/draw', 'draw', 'width=640,height=520,scrollbars=no,resizable=no,status=no')" style="display:none;writing-mode:vertical-rl;width:32px;height:32px;border-radius:5px;position:absolute;right:0px;top:3px;background-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAAXNSR0ICQMB9xQAAAAlwSFlzAAAXEgAAFxIBZ5/SUgAAABl0RVh0U29mdHdhcmUATWljcm9zb2Z0IE9mZmljZX/tNXEAAAHPSURBVEjHrVUxa8JQEI6C0DGbjgUXcfIHZJBMHTs4FJc6FlwUOnQR6ugUOkgHkZLJLuJYnDJ2LPUPdJROpVMp1D7vs3fhJUareXlwaF7y7rv77rt7Vr/ft7IwWi2yi639jJzXyBTbM54zBcjlcq+2ba+azaYqFAq/DHRPVsqKGtVut1UQBGo6nSrXdSWbJ1PnJ/l8/r1cLq/gXKzX6wnAlSmAB0eDwSB0Pp/PFegi4IVRDWidEvffjuMoPXrUgaOvmwLMqKAr3/dD5+Afe3hnpCJaZ4iy0WhEokc2yArZpQZAYUWW4Fuce54n1HhGjUarA0fdbjcSPZQERSGA1ABoHIr+My5L9IDI0mhUcHeq4XAYKSzoAm2JZ45w7sB5tVqNUINC67LcCUCrQjYhu43zyO+vZaAVi0U1Ho/VaDQS57OdgYkyyJbaROwkANzwu4V8R9RsyXIXgBx+49/llhr+MlObCWlZl1ow/l5q+bA4Pke6SVloAAjmi+3ugNqFl8UHU1VPyoLWY+xSqRwojpCeB23zRTKSwcbPP/j+SGlbAR9uxbsVF4Y+ltEHKTp/I084LOnzhjlWPNjkf+1ogP8uE80mqSbvvrmj1QI02mkA1phDJyOVQrQsAAAAAElFTkSuQmCC);background-repeat:no-repeat;background-position:50% 50%;background-size:24px 24px;"></button>
+        </div>
+        <div id="drawContainer" style="display:none;margin-bottom:10px;">
+          <img id="drawing" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAYdEVYdFNvZnR3YXJlAHBhaW50Lm5ldCA0LjEuNv1OCegAAAASSURBVBhXY/j//z8KJlngPwMAciYv0VaSbqwAAAAASUVORK5CYII=" style="border:1px solid #666;border-radius:3px;height:100px;"/>
+          <input type="button" onclick="delDrawing()" value="" style="width:24px;height:24px;padding:0px;font-size:12px;background-color:#F00;outline:none;border-width:0px;background-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAAXNSR0ICQMB9xQAAAAlwSFlzAAAXEgAAFxIBZ5/SUgAAABl0RVh0U29mdHdhcmUATWljcm9zb2Z0IE9mZmljZX/tNXEAAAB/SURBVCjPY/j//z8HEHs0NjYyoGOonAWIzfD379/+/xCQgK7o379/24H4O5CtARIQAHLOIyuGKYKKNYBNhEogK05FVwRXCFMMdMbF/wjQgOwUdDftQVKYgKEQzU0d6G4GK8TmcGweBAk2YHMTTDEQvwexYYEagSPABYDYAMQGALHRE9STQERqAAAAAElFTkSuQmCC);background-repeat:no-repeat;background-size:14px 14px;background-position:50% 50%;"/>
+        </div>
+      </div>
+      <input type="button" id="rubyBtn" value="ルビ" onclick="makeRuby();" disabled style="display:none;border-color:#999;border-width:2px;padding:1px 3px;margin:5px 0px;border-radius:5px;background-color:#F3F3F3;"/>
+      <input id="previewbtn" type="button" value="プレビュー" onclick="preview(undefined, true)" style="border-color:#999;border-width:2px;padding:1px 3px;margin:5px 0px;border-radius:5px;background-color:#F3F3F3;"/>
+      <span style="display:inline-block;width:8px;"></span>
+      <input id="justification_left" class="jBtn" type="button" value="左" onclick="changeJustification(0)" style="border-color:#999;border-width:2px;padding:1px 3px;margin:5px 0px;border-radius:5px;background-color:#F3F3F3;"/>
+      <input id="justification_right" class="jBtn" type="button" value="右" onclick="changeJustification(1)" style="border-color:#999;border-width:2px;padding:1px 3px;margin:5px 0px;border-radius:5px;background-color:#F3F3F3;"/>
+      <span style="display:inline-block;width:8px;"></span>
+      <input type="button" value="候補追加" onclick="addAns()" style="border-color:#999;border-width:2px;padding:1px 3px;margin:5px 0px;border-radius:5px;background-color:#F3F3F3;"/>
+      <input type="button" id="sendBtn" value="全て送信" onclick="checkSend()" style="border-color:#999;border-width:2px;padding:1px 3px;margin:5px 0px;border-radius:5px;background-color:#F3F3F3;"/>
+    </div>
+    <div id="result" style="margin-top:10px"></div>
+
+    <div id="graphContainer" style="background-color:#F6FAFF;border:1px solid;padding:0px 20px 0px 5px;;width:90%;display:none;margin-top:20px;">
+      <p id="userHistory" style="font-size:15px;font-weight:bold;white-space:nowrap;margin-top:0px;">ここまでの成績 </p>
+      <canvas id="stage" style="zoom:1.0"></canvas>
+    </div>
+    <input id="zoomRange" type="range" value="50" min="10" max="100" oninput="changeGraphZoom(this.value)" onchange="changeGraphZoom(this.value)" style="margin-top:15px;display:none;width:200px;"/>
+
+    <!-- div id="dialog_graph" style="border:1px solid #666;background-color:#FFF;padding:1px;margin-top:15px;width:100%;height:300px;overflow-x:scroll;overflow-y:hidden;visibility:hidden;">
+      <object id="object_graph" data="/graph" width="100%" height="280" style="margin:0px;" onload="this.parentNode.style.visibility='visible'"><p>object要素がサポートされていないようです。<a id="link_graph" href="javascript:void(0)" onclick="window.open('/graph', 'graph')" target="graph">こちら</a>をごらんください。</p></object>
+    </div>
+    <input id="widthRange" type="range" value="50" min="100" max="1000" oninput="changeGraphWidth(this.value)" onchange="changeGraphWidth(this.value)" style="margin-top:15px;display:block;width:200px;"/ -->
+
+    <div id="dialog">
+      <p style="margin-bottom:20px;">このお題は募集中ではないようです。<br/>それでも送信を試みますか？</p>
+      <button id="dlg_yes" style="font-size:16px;width:100px;">はい</button>
+      <button id="dlg_no" style="font-size:16px;width:100px;">いいえ</button>
+    </div>
+  </body>
+</html>

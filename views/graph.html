@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="ja" style="height:100%;">
+  <head>
+    <title>グラフで見る</title>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta http-equiv="Pragma" content="no-cache"><!-- 古い -->
+    <meta http-equiv="Cache-Control" content="no-store"><!-- 古い -->
+    <meta http-equiv="Expires" content="0"><!-- 古い -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="Chart.js"></script>
+    <script>
+      let graphData = null;
+      let query = {};
+      let graphTimerId = 0;
+      let page = 1;
+      let limit = 10;
+      let resultNum = 0;
+      let ctx = null;
+
+      if (location.search.length > 1) {
+        let m_Array = location.search.substring(1).split("&"); 
+        for (let key in m_Array) {
+          let q_Array = m_Array[key].split("=");
+          let name = q_Array[0];
+          query[name] = q_Array[1];
+        }
+      }
+      let userId = query.userId;
+      if(query.limit) limit = query.limit;
+      if(query.page) page = query.page;
+
+      window.onload = function() {
+        ctx = document.getElementById('stage').getContext('2d');
+        let anchors = document.getElementsByTagName('a');
+        for(let i in anchors){
+          anchors[i].href += '?d=' + Date.now();
+        }
+        getUser(userId);
+        // getGraphData(userId);
+      }
+
+      window.onresize = function() {
+        refresh();
+        /*
+        clearTimeout(graphTimerId);
+        graphTimerId = setTimeout(refresh, 3000);
+        */
+      }
+
+      if (navigator.userAgent.indexOf('iPhone') != -1 || navigator.userAgent.indexOf('iPad') != -1 || navigator.userAgent.indexOf('Android') > 0) {
+        window.onorientationchange = function(event) {
+          // refresh();
+          // setTimeout(refresh, 300); // 少し待つ必要あり？
+        }
+      }
+
+      function refresh() {
+        // drawGraph({});
+        if(graphData) if(graphData && graphData.length) drawGraph(graphData.slice(-limit*page).slice(0, limit));
+        changeLinkVisibility();
+
+        /*
+        let canvas = document.getElementById('stage');
+        canvas.style.width = window.innerWidth + 'px';
+        canvas.style.height = window.innerHeight + 'px';
+        */
+
+        /*
+        let ctx = canvas.getContext('2d');
+        ctx.canvas.height = window.innerHeight - 20;
+        ctx.canvas.width = window.innerWidth - 15;
+        */
+
+        if(window.myLine) window.myLine.update();
+      }
+
+      function prev() {
+        page++;
+        if(graphData) drawGraph(graphData.slice(-limit*page).slice(0, limit));
+        changeLinkVisibility();
+        if(window.myLine) window.myLine.update();
+      }
+
+      function next() {
+        page--;
+        if(graphData) drawGraph(graphData.slice(-limit*page).slice(0, limit));
+        changeLinkVisibility();
+        if(window.myLine) window.myLine.update();
+      }
+
+      function changeLinkVisibility() {
+        if(resultNum/limit <= 1) return;
+
+        if(page >= resultNum/limit) {
+          document.getElementById('prevLink').style.visibility = 'hidden';
+          document.getElementById('page').innerText = document.getElementById('page').innerText.replace(']', '（最後）]');
+        }else{
+          document.getElementById('prevLink').style.visibility = 'visible';
+        }
+        if(page <= 1) {
+          document.getElementById('nextLink').style.visibility = 'hidden';
+          document.getElementById('page').innerText = document.getElementById('page').innerText.replace(']', '（最新）]');
+        }else{
+          document.getElementById('nextLink').style.visibility = 'visible';
+        }
+      }
+
+      function getUser(id) {
+        let url = './getuser?d=' + Date.now();
+        if(id) url += '&userId=' + id;
+
+        let req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+        req.onreadystatechange = function(){
+          if(req.readyState == 4 && req.status == 200) {
+            userName = JSON.parse(req.response).name;
+            document.title += userName + 'さんの結果';
+            document.getElementById('userHistory').innerText = ' ' + userName + ' さんの結果　';
+            document.getElementById('userHistory').style.display = 'inline';
+            if(userId) getGraphData(userId);
+          }
+        };
+        req.open("GET", url, true);
+        req.setRequestHeader("Content-Type" , "application/json");
+        req.send();
+      }
+
+      function getGraphData(userId) {
+        if(!userId) return;
+        let url = './getgraphdata?userId='+ userId + '&d=' + Date.now();
+
+        let req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+
+        req.onreadystatechange = function(){
+          if(req.readyState == 4 && req.status == 200) {
+            graphData = JSON.parse(req.response);
+            resultNum = graphData.length;
+            if(resultNum/limit < 1) document.getElementById('page').style.display = 'none';
+            if(graphData) drawGraph(graphData.slice(-limit*page).slice(0, limit));
+            changeLinkVisibility();
+          }else if(req.readyState == 4 && req.status != 200){
+          }
+        };
+        req.open("GET", url, true);
+        req.setRequestHeader("Content-Type" , "application/json");
+        req.send();
+      }
+
+      function drawGraph(obj) {
+        let iframes = document.getElementsByTagName('iframe');
+        if(iframes[0]) iframes[0].parentNode.removeChild(iframes[0]);
+
+        let stage = document.getElementById('stage');
+        while (stage.firstChild) stage.removeChild(stage.firstChild);
+
+        config = {
+          type: 'line',
+          data:
+          {
+            labels:[],
+            datasets:
+            [
+              {
+                fill: false,
+                backgroundColor: '#DB514E',
+                borderWidth: 3,
+                borderColor: 'rgba(201,60,58,0.8)',
+                pointBorderColor: '#fff',
+                pointBackgroundColor: 'rgba(201,60,58,0.8)',
+                pointBorderWidth: 2,
+                pointRadius:10,
+                pointHoverRadius: 13,
+                pointHoverBackgroundColor: '#9A1B19',
+                pointHoverBorderColor: '#fff',
+                pointHoverBorderWidth: 2,
+                tension: 0
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            animation: false,
+            responsiveAnimationDuration: 0,
+            legend: {
+              display: false
+            },
+            scales: {
+              xAxes: [{
+                display: true,
+                scaleLabel: {
+                  display: false,
+                  labelString: 'お題',
+                  fontFamily: 'monospace',
+                  fontSize: 12
+                },
+                ticks: {
+                  padding: 10,
+                  display: false, // 無い方がいいか？
+                  autoSkip: false,
+                  fontSize: 11,
+                  callback: function(value){
+                    return value+'';
+                  }
+                },
+                stacked: false,
+                gridLines: {
+                  display: true
+                }
+              }],
+              yAxes: [{
+                display: true,
+                scaleLabel: {
+                  display: false,
+                  labelString: '順位',
+                  fontFamily: 'monospace',
+                  fontSize: 14
+                },
+                ticks: {
+                  padding: 10,
+                  reverse: true,
+                  fontSize: 12,
+                  fontStyle: 'bold',
+                  min: 1,
+                  max: 10,
+                  stepSize:1,
+                  callback: function(value){
+                    if(value > 9) return '選外';
+                    return value+'位';
+                  }
+                },
+                gridLines: {
+                  display: true
+                }
+              }]
+            },
+            tooltips: {
+              bodyFontSize: 13,
+              callbacks: {
+                label: function(tooltipItem, data) {
+                  let label = '';
+                  if(tooltipItem.yLabel < 10) {
+                    if(config) label += '\n【' + tooltipItem.yLabel + '位】\n' + config.data.datasets[tooltipItem.datasetIndex].bestAnswers[tooltipItem.index];
+                  }else if(tooltipItem.yLabel == 10){
+                    label += '【選外】';
+                  }else{
+                    label += '未確定';
+                  }
+                  return label;
+                }
+              }
+            }
+          }
+        };
+
+        let ranks = [];
+        let bests = [];
+
+        if(obj) {
+          for(let i = 0; i < obj.length; i++) {
+            config.data.labels.push(obj[i].odai);
+          }
+          for(let i = 0; i < obj.length; i++) {
+            if(obj[i].best) {
+              ranks.push(obj[i].best.rank);
+              bests.push(obj[i].best.sentence);
+            }else{
+              ranks.push(10);
+              bests.push('');
+            }
+          }
+        }
+        config.data.datasets[0].data = ranks;
+        config.data.datasets[0].bestAnswers = bests;
+        document.getElementById('graphContainer').style.display = 'block';
+        // ctx.canvas.height = window.innerHeight * 0.92;
+        ctx.canvas.height = window.innerHeight - 20;
+        ctx.canvas.width = window.innerWidth - 15;
+        document.getElementById('page').innerText = ' [ ' + page + 'ページ目 ]';
+        if(resultNum/limit <= 1) document.getElementById('page').style.display = 'none';
+        /*
+        let iframes = document.getElementsByTagName('iframe');
+        for(let i in iframes) {
+          if(iframes[i]) iframes[i].parentNode.removeChild(iframes[i]);
+        }
+        */
+
+        window.myLine = new Chart(ctx, config);
+        window.myLine = null;
+
+        config = null;
+        obj = null;
+        
+      }
+
+      function changeGraphWidth(range) {
+        // document.getElementById('stage').style.height = '300px';
+        document.getElementById('stage').style.width = range.value * 100 + '%';
+        let ctx = document.getElementById('stage').getContext('2d');
+        ctx.canvas.height = window.innerHeight - 20;
+        ctx.canvas.width = window.innerWidth*range.value - 15;
+
+        window.myLine.update();
+        // window.myLine = new Chart(ctx, config);
+      }
+
+      function prepareXMLHttpRequest() {
+        if (window.XMLHttpRequest) {
+          return new XMLHttpRequest();
+        } else if (window.ActiveXObject) {
+          return new ActiveXObject("Microsoft.XMLHTTP");
+        }
+        return null;
+      }
+    </script>
+  </head>
+  <body style="background-color:#FFF;margin:0px;padding:0px;heiight:100%;overflow:hidden;">
+    <div id="graphContainer" style="position:absolute;left:0px;top:5px;background-color:#FFF;border:0px;padding:0px;display:none;margin:10px 0px 0px 0px;width:93%;">
+      <!-- 何とか transform:scale で幅を変えられないか -->
+      <canvas id="stage" style="zoom:1.0;width:100%;transform:scaleX(1.0)"></canvas>
+    </div>
+    <table style="position:absolute;left:0px;bottom:0px;width:100%;"><tr>
+      <td style="width:50px;font-weight:bold;padding-left:60px;"><a id="prevLink" href="javascript:void(0)" onclick="prev();return false;" style="visibility:hidden;font-size:12px;">前へ</a></td>
+      <td style="text-align:center;">
+        <span id="userHistory" style="font-size:14px;font-weight:bold;margin:0px;"></span>
+        <span id="page" style="font-size:12px;font-weight:bold;margin:0px;"></span>
+      </td>
+      <td style="width:50px;font-weight:bold;text-align:right;padding-right:60px;"><a id="nextLink" href="javascript:void()" onclick="next();return false;" style="visibility:hidden;font-size:12px;">次へ</a></td>
+    </tr></table>
+    <input type="range" value="1.0" min="1.0" step="0.1" max="10.0" onchange="changeGraphWidth(this)" style="width:200px;position:fixed;display:none;right:5px;top:5px;"/>
+    <input type="button" value="再描画" onclick="refresh()" style="display:none;position:fixed;right:0px;top:0px;"/>
+  </body>
+</html>

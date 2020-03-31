@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <title>パスワード再発行</title>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta http-equiv="Pragma" content="no-cache"><!-- 古い -->
+    <meta http-equiv="Cache-Control" content="no-store"><!-- 古い -->
+    <meta http-equiv="Expires" content="0"><!-- 古い -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script>
+      window.onload = function() {
+        getUsers();
+        copyBtn.addEventListener("click", function(e) {
+          copyText(document.getElementById('newPw'));
+        }, false);
+      }
+
+      function makeNewPw(select) {
+        let idx = select.selectedIndex;
+        if(!confirm(select.options[idx].innerText + ' さんのパスワードをリセットしますか？')) return;
+        let userId = select.options[idx].value;
+
+        let url = './makepw?d=' + Date.now();
+
+        let req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+
+        req.onreadystatechange = function(){
+          if(req.readyState == 4 && req.status == 200) {
+            newPw = JSON.parse(req.response).pw;
+            document.getElementById('newPw').value = newPw;
+            document.getElementById('published').style.display = 'block';
+            document.getElementById('note').innerText = '再発行したパスワードを' + select.options[idx].innerText + 'さんに連絡してください。\nただちにユーザ情報変更から新しいパスワードに変更してもらってください。';
+          }else if(req.readyState == 4 && req.status == 400) {
+            alert(req.response);
+          }
+        };
+
+        req.open("POST", url, true);
+        let data = {id: userId};
+        req.setRequestHeader("Content-Type" , "text/plain");
+        req.send(JSON.stringify(data));
+      }
+
+      function getUsers() {
+        let url = './getusers?d=' + Date.now();
+        let req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+        req.onreadystatechange = function(){
+          if(req.readyState == 4 && req.status == 200) {
+            users = JSON.parse(req.response);
+            let selectUser = document.getElementById('users');
+            for(let key in users) {
+              if(users[key].is_admin) continue;
+              let opt = document.createElement('option');
+              opt.value = users[key]._id;
+              opt.innerText = users[key].name;
+              selectUser.appendChild(opt);
+            }
+            document.getElementById('targetuser').style.display = 'block';
+          }
+        };
+        req.open("GET", url, true);
+        req.setRequestHeader("Content-Type" , "application/json");
+        req.send();
+      }
+
+      function prepareXMLHttpRequest() {
+        if (window.XMLHttpRequest) {
+          return new XMLHttpRequest();
+        } else if (window.ActiveXObject) {
+          return new ActiveXObject("Microsoft.XMLHTTP");
+        }
+        return null;
+      }
+
+      function copyText(target) {
+        // 文字列を選択状態に
+        target.selectionStart = 0;
+        target.selectionEnd = target.value.length;
+
+        // 要素をフォーカス
+        target.focus();
+
+        // コピー実行（失敗時はコンソールにメッセージ表示）
+        if (!document.execCommand('copy')) {
+          console.log("コピーに失敗しました。");
+        }
+        // target.blur(); // フォーカス外す
+      }
+    </script>
+    <style>
+/*
+html{
+  display: table;
+  width: 100%;
+  height: 100%;
+}
+body{
+  display: table-cell;
+  text-align: center;
+  vertical-align: middle;
+  background-color:#EDF6FF;
+}
+*/
+select {
+  background-image: linear-gradient(0deg, #DDD, #FEFEFE);
+  border: 1px solid #999;
+  border-radius: 0.3em;
+  padding-bottom:3px;
+}
+input[type="button"] {
+  background-image: linear-gradient(0deg, #DDD, #FEFEFE);
+  border: 1px solid #999;
+  border-radius: 0.3em;
+}
+    </style>
+  </head>
+  <body style="background-color:#EDF6FF;">
+    <div id="targetuser" style="display:none;margin-top:15px;">
+      <select id="users" style="max-width:200px;font-size:14px;font-weight:bold;"></select><span style="font-size:13px;">&nbsp;さんのパスワードを&nbsp;</span><input type="button" value="再発行" style="font-size:14px;" onclick="makeNewPw(document.getElementById('users'))"/>
+    </div>
+    <div id="published" style="display:none;margin-top:25px;">
+      <input id="newPw" type="text" name="inputArea" value="DDDD" readonly/>
+      <input id="copyBtn" type="button" name="copy1" value="コピー"/>
+      <p id="note" style="line-height:14px;font-size:13px;"></p>
+    </div>
+  </body>
+</html>

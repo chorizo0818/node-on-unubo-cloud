@@ -1,0 +1,1829 @@
+<!DOCTYPE HTML>
+<html style="height:100%;">
+<head>
+<meta http-equiv="Content-Style-Type" content="text/css">
+<meta http-equiv="Content-Script-Type" content="text/javascript">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no">
+<meta charset="utf-8">
+<title>おえかき</title>
+<style>
+  body {
+    overflow:hidden;
+    color:#FFF;
+    width:100%;
+    height: 100%;
+    margin:0px;
+    padding:0px;
+    overflow:hidden;
+    background-color:#CCC;
+    font-family:Arial, Verdana, Roboto, メイリオ, Meiryo;
+  }
+
+  label {
+    margin:-2px;
+  }
+
+  .box {
+    display: flex;
+    flex-flow: column;
+    height: 100%;
+  }
+
+  .box .row {
+    height: 100%;
+  }
+
+  .box .row.header {
+    flex: 0 1 auto;
+    height: 160px;
+  }
+
+  .box .row.content {
+    flex: 1 1 auto;
+    height:0px;
+  }
+
+  .box .row.footer {
+    background-color:#336;
+    flex: 0 1 85px;
+    border-width: 1px;
+    border-color: #FFF;
+    border-style: dotted none none none;
+    overflow: hidden;
+    box-sizing:border-box;
+  }
+
+  * {
+    -ms-user-select: none;
+    -moz-user-select: -moz-none;
+    -khtml-user-select: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  label {
+    letter-spacing:-1px;
+    font-size: 12px;
+    display:inline-block;
+    width:50px;
+    margin-right:-10px;
+  }
+
+  div {
+    padding:2px;
+  }
+
+  .toolLabel {
+    font-size:12px;
+    width:26px;
+    display:inline-block;
+    margin-right:5px;
+    position:relative;
+    top:-5px;
+  }
+
+  .flexContainer {
+    display:flex;margin:0px;padding:0px;border-radius:0px 0px 5px 5px;
+  }
+
+  #dialog {
+    position: absolute;
+    top: 20px;
+    right: 0px;
+    bottom: 0px;
+    left: 0px;
+    display: none;
+    font-size: 14px;
+    width: 280px;
+    height: 180px;
+    background-color: #FFF;
+    margin: auto;
+    padding: 30px 20px;
+    text-align: center;
+    border: 1px solid #aaa;
+    box-shadow: 4px 4px 4px #333;
+    vertical-align: middle;
+  }
+</style>
+
+<script>
+  const cursorCvs = document.createElement('canvas');
+  const cursorCtx = cursorCvs.getContext('2d');
+
+  const fillImg = new Image();
+  fillImg.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsIAAA7CARUoSoAAAADTSURBVDhPlZRREsMgCES1979z6hJwVlyxfR8hRXnZ2Jm0P3i8lnSvN1hWzvwqBM9g7u9dj5bCIbDqw/mV5ezSJIEath72ULpNao0sUrYgpQaL9OPVZNhayZgQD5aRKVSEjIYXlNSEkY65yYIslQkrGZ3dhKUQygxKVqWNNZnwNKjSBbGG6zb+Ns9pMvSgfvyXqzQMy3CBcBn1eys3aZaBY8JBKVUywD/mqXkz1qzNZ3qSgSphYEMhqWQgNy2HN7c1r0DKwFyIVxoJxu3xQ0rPU7T2BcBBXCYxhkoxAAAAAElFTkSuQmCC';
+
+  const penImg = new Image();
+  penImg.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsIAAA7CARUoSoAAAACjSURBVDhPrdGLDoMgDEBRuv//Z9bbgakCs0VvsrCHnrROaq3lzT7t3E5EThNtgR3hZEOPplc2hFNf/l79ns+SmrBjZKgi1DF7H53QY7426U/WQhOuMGqTHj/fgv8wSk2YxWgJ7mA0BXcxGsAnGJ1Aw5RbXX2H0XTlGRrBaLaynR6NYnSA/tld0ShGPLThj/B3ZzAawOxE12xlAISnGNmE71XKF8+5dBbv7qncAAAAAElFTkSuQmCC';
+
+  let dialog = null;
+  let dlg_yes = null;
+  let dlg_no = null;
+  let dlg_cancel = null;
+
+  let isPressedCtrl = false;
+  let undoed = false;
+
+  let buffers = [];
+  let buffIdx = 0;
+  let buffSize = 30;
+  let lastToolboxVisibility = false;
+
+  let screenW;
+  let screenH;
+
+  var g_mobiledevice = false;
+  var g_browsername = 'unknown';
+  var g_browserver = -1;
+
+  if(checkUserAgent() == false){
+  }
+
+  function changeCursorSize(size, broken) {
+    // size *= 0.95;
+    if(size < 4) {
+      document.getElementById('drawDiv').style.cursor = 'url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsIAAA7CARUoSoAAAABFSURBVChThY8BCgAgCANd//+zudJSCTqocI6NoIZc4O/RBi8A6xhcaJq3IciLgAbW7CnhGkrCCxpWZ8c1LQmM7XWfb4pMjtUaETBuIHUAAAAASUVORK5CYII=) ' + 4 + ' ' + 4 + ', auto';
+      return;
+    }
+    size = size * 2;
+    size = size / 2;
+    cursorCvs.width = size + 2;
+    cursorCvs.height = size + 2;
+    cursorCtx.arc(size/2 + 1, size/2 + 1, size/2, 0, 360 * Math.PI / 180, false);
+    cursorCtx.strokeStyle = broken ? '#666' : penColor;
+    cursorCtx.fillStyle = broken ? '#666' : penColor;
+    cursorCtx.lineWidth = 1;
+    if(broken) cursorCtx.setLineDash([size/14, size/14]);
+    broken ? cursorCtx.stroke() : cursorCtx.fill();
+    document.getElementById('drawDiv').style.cursor = 'url(' + cursorCvs.toDataURL() + ') ' + size/2 + ' ' + size/2 + ', auto';
+  }
+
+  function kd(e) {
+    let kcode;
+    if (document.all) {
+      kcode = e.keyCode;
+    } else {
+      kcode = e.which;
+    }
+
+    if(kcode == 116) {
+      if(confirm('本当にリロードしますか？')) location.reload(true);
+      return false;
+    }
+
+    if(kcode == 17){
+      isPressedCtrl = true;
+    }else if(kcode == 79 && isPressedCtrl) { // Ctrl + O
+      document.getElementById('file').click();
+      return false;
+    }else if(kcode == 32) { // Space
+      eraseMode = false;
+      fillMode = false;
+      dropperMode = false;
+      document.getElementById('penSize').value = penSize;
+      changeDispMode();
+      return false;
+    }else if(kcode == 83 && !isPressedCtrl) { // S
+      changeDropperMode(!dropperMode);
+      // changeDropperMode(true);
+      return false;
+    }else if(kcode == 67 && !isPressedCtrl) { // C
+      document.getElementById('penColor').click();
+      return false;
+    }else if(kcode == 83 && isPressedCtrl) { // Ctrl + S
+      addWatermark();
+      return false;
+    }else if(kcode == 89 && isPressedCtrl) { // Ctrl + Y
+      redo();
+      return false;
+    }else if(kcode == 90 && isPressedCtrl) { // Ctrl + Z
+      undo();
+      return false;
+    }else if(kcode == 38) { // 上
+      if(fillMode) {
+        if(isPressedCtrl) {
+          document.getElementById('rangeValue').value = parseInt(document.getElementById('rangeValue').value) + parseInt(document.getElementById('rangeValue').step);
+        }else{
+          document.getElementById('rangeValue').value = parseInt(document.getElementById('rangeValue').value) + parseInt(document.getElementById('rangeValue').step) * 4;
+        }
+      }else{
+        document.getElementById('penSize').value = parseInt(document.getElementById('penSize').value) + parseInt(document.getElementById('penSize').step);
+        changePenSize();
+      }
+      return false;
+    }else if(kcode == 40) { // 下
+      if(fillMode) {
+        if(isPressedCtrl) {
+          document.getElementById('rangeValue').value = parseInt(document.getElementById('rangeValue').value) - parseInt(document.getElementById('rangeValue').step);
+        }else{
+          document.getElementById('rangeValue').value = parseInt(document.getElementById('rangeValue').value) - parseInt(document.getElementById('rangeValue').step) * 4;
+        }
+      }else{
+        document.getElementById('penSize').value = parseInt(document.getElementById('penSize').value) - parseInt(document.getElementById('penSize').step);
+        changePenSize();
+      }
+      return false;
+    }else if(kcode == 39) { // 右
+      if(fillMode) return false;
+      document.getElementById('alpha').value = parseFloat(document.getElementById('alpha').value) + parseFloat(document.getElementById('alpha').step) * 1;
+      changeAlpha();
+      return false;
+    }else if(kcode == 37) { // 左
+      if(fillMode) return false;
+      document.getElementById('alpha').value = parseFloat(document.getElementById('alpha').value) - parseFloat(document.getElementById('alpha').step) * 1;
+      changeAlpha();
+      return false;
+    }else if(kcode == 69) { // e
+      // eraseMode = !eraseMode;
+      eraseMode = true;
+      changeEraseMode(eraseMode);
+      return false;
+    }else if(kcode == 70) { // f
+      // fillMode = !fillMode;
+      fillMode = true;
+      changeFillMode(fillMode);
+      return false;
+    }else if(kcode == 84) { // t
+      toggleToolboxVisibility();
+      return false;
+    }
+  }
+
+  function ku(e) {
+    let kcode;
+    if (document.all) {
+      kcode = e.keyCode;
+    } else {
+      kcode = e.which;
+    }
+    if(kcode == 17){
+      isPressedCtrl = false;
+    }
+  }
+
+  function addKeyEvent() {
+    document.onkeydown = kd;
+    document.onkeyup = ku;
+  }
+
+  function checkUserAgent(){
+    var ua = navigator.userAgent;
+
+    var mstr = ua.match(/iPhone OS \d+/);
+    if(mstr != null){
+    var vstr = mstr[0].match(/\d+/);
+      if(parseInt(vstr[0]) >= 3) {
+        g_mobiledevice = true;
+        g_browsername = 'iPhone';
+        return true;
+      }
+    }
+
+    if(ua.indexOf('iPad') > -1){
+      mstr = ua.match(/CPU OS \d+/);
+      if(mstr != null){
+        var vstr = mstr[0].match(/\d+/);
+        if(parseInt(vstr[0]) >= 3) {
+          g_mobiledevice = true;
+          g_browsername = 'iPad';
+          return true;
+        }
+      }
+    }
+
+    var mstr = ua.match(/Android \d+\.\d+/);
+    if(mstr != null){
+      g_browsername = 'Android';
+      var vstr = mstr[0].match(/\d+\.\d+/);
+      g_browserver = parseFloat(vstr[0]);
+      g_mobiledevice = true;
+      if(pg_browserver > 2.1) {
+        return true;
+      }
+    }
+
+    mstr = ua.match(/Chrome\/\d+/);
+    if(mstr != null){
+      g_browsername = 'Chrome';
+      var vstr = mstr[0].match(/\d+/);
+      g_browserver = parseInt(vstr[0]);
+      if(g_browserver >= 9) {
+        return true;
+      }
+    }
+
+    if(ua.indexOf('Safari') > -1){
+      mstr = ua.match(/Version\/\d+/);
+      if(mstr != null){
+        var vstr = mstr[0].match(/\d+/);
+        if(parseInt(vstr[0]) >= 5) {
+          g_browsername = 'Safari';
+          return true;
+        }
+      }
+    }
+
+    mstr = ua.match(/MSIE \d+/);
+    if(mstr != null){
+      var vstr = mstr[0].match(/\d+/);
+      if(parseInt(vstr[0]) >= 9) {
+        g_browsername = 'MSIE';
+        return true;
+      }
+    }
+
+    mstr = ua.match(/Firefox\/\d+/);
+    if(mstr != null){
+      var vstr = mstr[0].match(/\d+/);
+      if(parseInt(vstr[0]) >= 4) {
+        g_browsername = 'Firefox';
+        return true;
+      }
+    }
+
+    if(ua.indexOf('Opera') > -1){
+      mstr = ua.match(/Version\/\d+/);
+      if(mstr != null){
+        var vstr = mstr[0].match(/\d+/);
+        if(parseInt(vstr[0]) >= 11) {
+          g_browsername = 'Opera';
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+</script>
+
+<script>
+  var drawing = null;
+	var before_x = 0;
+	var before_y = 0;
+
+  let penColor = '#666666';
+  let alpha = 1;
+
+  function draw(data) {
+    if(data[3] && drawing && data[3] != drawing) return;
+    var command = data[0];
+
+    if(command == 'down'){
+      if(data[3]) drawing = data[3];
+
+      if(eraseMode) {
+        ctx.strokeStyle = '#ffffff';
+        ctx.globalAlpha = 1;
+        ctx.lineWidth = eraserRadius;
+      }else{
+        ctx.strokeStyle = penColor;
+        ctx.globalAlpha = alpha;
+        ctx.lineWidth = penSize;
+      }
+
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(before_x, before_y);
+      ctx.lineTo(before_x + 0.1, before_y + 0.1);
+      ctx.stroke();
+      ctx.closePath();
+      // 描画最後の座標を前回の座標に代入する
+      before_x = data[1];
+      before_y = data[2];
+      localStorage.setItem('drawing', theCanvas.toDataURL());
+    }else if(command == 'move'){
+      if(eraseMode) {
+        ctx.strokeStyle = '#ffffff';
+        ctx.globalAlpha = 1;
+        ctx.lineWidth = eraserRadius;
+      }else{
+        ctx.strokeStyle = penColor;
+        ctx.globalAlpha = alpha;
+        ctx.lineWidth = penSize;
+      }
+
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(before_x, before_y);
+      ctx.lineTo(data[1], data[2]);
+      ctx.stroke();
+      ctx.closePath();
+      // 描画最後の座標を前回の座標に代入する
+      before_x = data[1];
+      before_y = data[2];
+      localStorage.setItem('drawing', theCanvas.toDataURL());
+    }else if(command == 'up'){
+      drawing = null;
+      localStorage.setItem('drawing', theCanvas.toDataURL());
+    }else if(command == 'clear'){
+      ctx.fillStyle="#ffffff";
+      ctx.globalAlpha = 1;
+      ctx.fillRect(0, 0, data[1], data[2]);
+      ctx.strokeStyle=penColor;
+      ctx.globalAlpha = alpha;
+      localStorage.setItem('drawing', theCanvas.toDataURL());
+    }
+  }
+</script>
+
+<script>
+  //canvas
+  window.addEventListener('load', init, false);
+
+  let drawTimerId = 0;
+
+  var mouseX = 0;
+  var mouseY = 0;
+  var offsetX = 0;
+  var offsetY = 0;
+  var ctx = null;
+  var w = 5;
+  var h = 5;
+  var theCanvas = null;
+  var eraserRadius = 40;
+
+  let pastFill = false;
+
+  let toolPos = {x:'5px', y:'5px'};
+  let toolVisibility = true;
+
+  var eraser = document.createElement('div');
+  eraser.style.width = eraserRadius + 'px';
+  eraser.style.height= eraserRadius + 'px';
+  eraser.style.borderRadius = eraserRadius + 'px';
+  eraser.style.border = '1px solid #666';
+  eraser.style.position = 'absolute';
+  eraser.style.left = '0px';
+  eraser.style.top = '0px';
+  eraser.style.display = 'none';
+
+  var eraseMode = false;
+  var fillMode = false;
+  var dropperMode = false;
+  var keepDropperMode = false;
+  var penSize = 1;
+  const isMobile = (navigator.userAgent.indexOf('iPhone') != -1 || navigator.userAgent.indexOf('iPad') != -1 || navigator.userAgent.indexOf('Android') != -1);
+
+  let startx = 0;
+  let starty = 0;
+  let isDragging = false;
+  let forClose = false;
+
+  if(localStorage.getItem('toolPos')) {
+    toolPos = JSON.parse(localStorage.getItem('toolPos'));
+  }
+  if(localStorage.getItem('toolVisibility')) {
+    toolVisibility = eval(localStorage.getItem('toolVisibility'));
+  }
+
+  // タッチパネル搭載デバイスかどうか
+  function isTouchDevice() {
+    let result = false;
+    if (window.ontouchstart === null) {
+      result = true;
+    }  
+    return result;
+  }
+
+  function init(){
+    dialog = document.getElementById('dialog');
+    dlg_yes = document.getElementById('dlg_yes');
+    dlg_no = document.getElementById('dlg_no');
+    dlg_cancel = document.getElementById('dlg_cancel');
+
+    toggleToolboxVisibility(toolVisibility);
+    document.getElementById('toolbox').style.left = toolPos.x;
+    document.getElementById('toolbox').style.top = toolPos.y;
+
+    if(isMobile) document.body.appendChild(eraser);
+
+    changeDispMode();
+    // if(!isMobile) document.getElementById('fillBtn').style.display = 'block';
+    if(navigator.userAgent.indexOf('Android') != -1 && navigator.userAgent.indexOf('Chrome') != -1) {
+      document.getElementById('fill').style.display = 'none';
+      document.getElementById('fillTitle').style.margin = '0px';
+      document.getElementById('dropperTitle').style.margin = '0px';
+    }
+    document.getElementById('fill').style.backgroundImage = 'url(' + getFillCursor() + ')';
+    document.getElementById('pen').style.backgroundImage = 'url(' + getPenIcon() + ')';
+
+    changePenSize();
+    changeAlpha();
+
+    addKeyEvent();
+
+    const data = localStorage.getItem('drawing');
+    if(data) setPicture(data, true);
+
+    screenW = document.body.clientWidth;
+    screenH = document.body.clientHeight;
+
+    document.getElementById('penColor').value = penColor;
+    document.getElementById('alpha').value = alpha;
+
+    var theContents = document.getElementById("contents");
+    offsetX = 0;
+    offsetX =  offsetX / 2;
+    offsetY = 0;
+    offsetY =  offsetY / 2;
+
+    document.getElementById('canvas').addEventListener('touchstart', function() {
+      event.preventDefault();
+    });
+    document.getElementById('canvas').addEventListener('touchmove', function() {
+      event.preventDefault();
+    });
+    document.getElementById('canvas').addEventListener('touchend', function() {
+      event.preventDefault();
+    });
+
+    theCanvas = document.getElementById("canvas");
+    theCanvas.width = screenW;
+    theCanvas.height = screenH;// - 85;
+
+    document.body.ondragover = document.body.ondragenter = function(e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+
+    document.body.ondragleave = document.body.ondragend = function(e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+
+    document.body.ondrop = function(e) {
+      e.stopPropagation();
+      e.preventDefault();
+      let filesArray = e.dataTransfer.files;
+      if(filesArray.length > 1) {
+        alert('一度に読み込めるファイルは１つです');
+        return;
+      }
+
+      let f = filesArray.item(0);
+      readFile(f);
+    }
+
+    ctx = theCanvas.getContext("2d");
+    ctx.fillStyle="#ffffff";
+    ctx.fillRect(0, 0, theCanvas.width, theCanvas.height);
+    theCanvas.addEventListener('touchstart', mouseDownHandler, false);
+    theCanvas.addEventListener('mousedown', mouseDownHandler, false);
+    theCanvas.addEventListener('touchend', mouseUpHandler, false);
+    theCanvas.addEventListener('mouseup', mouseUpHandler, false);
+    document.addEventListener('mouseup', mouseUpHandler, false);
+
+    toolbox.addEventListener('mousedown', dragStart(this), false);
+    document.addEventListener('mousemove', dragging, false);
+    document.addEventListener('mouseup', dragEnd, false);
+
+    toolbox.addEventListener('touchstart', dragStart(this), false);
+    document.addEventListener('touchmove', dragging, false);
+    document.addEventListener('touchend', dragEnd, false);
+
+    if(eraseMode) {
+      ctx.strokeStyle = '#ffffff';
+      ctx.globalAlpha = 1;
+      ctx.lineWidth = eraserRadius;
+    }else{
+      ctx.strokeStyle = penColor;
+      ctx.globalAlpha = alpha;
+      ctx.lineWidth = penSize;
+    }
+    ctx.fillStyle = "#ffffff";
+
+    if(!window.opener) {
+      alert('呼び出し元の画面が見つかりません。\n描いた内容は保存しますが、\n回答ページから画面を開き直すことをおすすめします。');
+    }else{
+      document.getElementById('finishBtn').style.display = 'inline-block';
+    }
+  }
+
+  function dragStart(div) {
+    return function(e){
+      if(event.target.id && event.target.id != 'toolNob' && event.target.id != 'modeName' && event.target.id != 'canvas') {
+        return;
+      }
+      e = e || window.event;
+      e.preventDefault();
+
+      if(e.touches) {
+        e = e.touches[0];
+        e.pageX = e.clientX;
+        e.pageY = e.clientY;
+      }
+
+      if(event.touches && e.pageX - this.getBoundingClientRect().left + window.pageXOffset > (parseInt(document.getElementById('toolbox').style.width.replace('px', '')) - 28)
+        && e.pageY - this.getBoundingClientRect().top + window.pageYOffset < 28) {
+        forClose = true;
+        return false;
+      }else{
+      }
+
+      isDragging = true;
+      let clientRect = this.getBoundingClientRect();
+      let posx = clientRect.left + window.pageXOffset;
+      let posy = clientRect.top + window.pageYOffset;
+      startx = e.pageX - posx;;
+      starty = e.pageY - posy;
+    }
+  }
+
+  function dragging(e) {
+    if(event.target.id && event.target.id != 'toolNob' && event.target.id != 'modeName' && event.target.id != 'canvas') {
+      return;
+    }
+
+    if(forClose) {
+      return;
+    }
+
+    e = e || window.event;
+    e.preventDefault();
+
+    if(e.touches) {
+      e = e.touches[0];
+      e.pageX = e.clientX;
+      e.pageY = e.clientY;
+    }
+
+    const toolbox = document.getElementById('toolbox');
+
+    if(isDragging) {
+      document.getElementById('toolbox').style.left = (e.pageX - startx) + 'px';
+      document.getElementById('toolbox').style.top = (e.pageY - starty) + 'px';
+      if(parseInt(toolbox.style.left.replace('px', '')) > document.body.clientWidth - 30) {
+        // toolbox.style.left = (document.body.clientWidth - parseInt(toolbox.style.width.replace('px', ''))) + 'px';
+        toolbox.style.left = (document.body.clientWidth - 30) + 'px';
+      }
+      if(parseInt(toolbox.style.top.replace('px', '')) > document.body.clientHeight - 30) {
+        // toolbox.style.top = (document.body.clientHeight - toolbox.clientHeight) + 'px';
+        toolbox.style.top = (document.body.clientHeight - 30) + 'px';
+      }
+
+      if(parseInt(toolbox.style.left.replace('px', '')) < -parseInt(toolbox.style.width.replace('px', '')) + 30) {
+        toolbox.style.left = (30 - parseInt(toolbox.style.width.replace('px', ''))) + 'px';
+      }
+      if(parseInt(toolbox.style.top.replace('px', '')) < -toolbox.clientHeight + 30) {
+        toolbox.style.top = (30 - toolbox.clientHeight) + 'px';
+      }
+      localStorage.setItem('toolPos', JSON.stringify({x:toolbox.style.left, y:toolbox.style.top}));
+    }
+  }
+
+  function closeToolbox() {
+    keepDropperMode = true;
+    toggleToolboxVisibility(false);
+  }
+
+  function toggleToolboxVisibility(show) {
+    const toolbox = document.getElementById('toolbox');
+    if(toolbox.style.display == 'block' && !show) {
+      toolbox.style.display = 'none';
+      localStorage.setItem('toolVisibility', false);
+      document.getElementById('showTool').style.display = 'block';
+    }else{
+      if(parseInt(toolbox.style.left.replace('px', '')) > document.body.clientWidth - 30) {
+        // toolbox.style.left = (document.body.clientWidth - parseInt(toolbox.style.width.replace('px', ''))) + 'px';
+        toolbox.style.left = (document.body.clientWidth - 30) + 'px';
+      }
+      if(parseInt(toolbox.style.top.replace('px', '')) > document.body.clientHeight - 30) {
+        // toolbox.style.top = (document.body.clientHeight - toolbox.clientHeight) + 'px';
+        toolbox.style.top = (document.body.clientHeight - 30) + 'px';
+      }
+
+      if(parseInt(toolbox.style.left.replace('px', '')) < -parseInt(toolbox.style.width.replace('px', '')) + 30) {
+        toolbox.style.left = (30 - parseInt(toolbox.style.width.replace('px', ''))) + 'px';
+      }
+      if(parseInt(toolbox.style.top.replace('px', '')) < -toolbox.clientHeight + 30) {
+        toolbox.style.top = (30 - toolbox.clientHeight) + 'px';
+      }
+
+      toolbox.style.display = 'block';
+      localStorage.setItem('toolVisibility', true);
+      document.getElementById('showTool').style.display = 'none';
+    }
+  }
+
+  function dragEnd() {
+    keepDropperMode = true;
+    if(forClose) {
+      forClose = false;
+      toggleToolboxVisibility();
+    }
+    isDragging = false;
+  }
+
+  function setMouseXY(e){
+    if(event && event.touches){
+      var rect = event.currentTarget.getBoundingClientRect();
+      mouseX = event.touches[0].pageX - rect.left;
+      mouseY = event.touches[0].pageY - rect.top;
+    }else if(g_browsername == 'MSIE' || g_browsername == 'Opera'){
+      rect = document.getElementById("canvas").getBoundingClientRect();
+      mouseX = event.clientX - rect.left;
+      mouseY = event.clientY - rect.top;
+    }else if(g_browsername == 'Firefox'){
+      rect = document.getElementById("canvas").getBoundingClientRect();
+      mouseX = e.clientX - rect.left;
+      mouseY = e.clientY - rect.top;
+    }else{
+      rect = event.currentTarget.getBoundingClientRect();
+      mouseX =  event.clientX - rect.left;
+      mouseY =  event.clientY - rect.top;
+    }
+  }
+
+  function mouseDownHandler(e){
+    if(dialog.style.display == 'block') return;
+
+    keepDropperMode = false;
+    setMouseXY(e);
+    if(dropperMode) {
+      dropper(mouseX, mouseY);
+      document.body.addEventListener('touchmove', mouseMoveHandler, false);
+      document.body.addEventListener('mousemove', mouseMoveHandler, false);
+      return;
+    }
+    if((undoed || buffers.length == 0) && event.srcElement.id == 'canvas') {
+      buffers.splice(buffIdx, buffers.length);
+      buffers.push(theCanvas.toDataURL());
+      undoed = false;
+    }
+    if(fillMode) {
+      const r = parseInt(penColor.substring(1, 3), 16);
+      const g = parseInt(penColor.substring(3, 5), 16);
+      const b = parseInt(penColor.substring(5, 7), 16);
+      const a = 255;
+      floodFill(ctx, mouseX, mouseY, [r, g, b, a], document.getElementById('rangeValue').value);
+      return;
+    }
+    document.body.addEventListener('touchmove', mouseMoveHandler, false);
+    document.body.addEventListener('mousemove', mouseMoveHandler, false);
+
+    var chat_message = [];
+
+    chat_message[0] = "down";
+    chat_message[1] = mouseX;
+    chat_message[2] = mouseY;
+
+    if(eraseMode && isMobile) {
+      eraser.style.display = 'block';
+      eraser.style.top = (mouseY - eraserRadius/2) + 'px';
+      eraser.style.left = (mouseX - eraserRadius/2) + 'px';
+    }
+
+		var rect = e.target.getBoundingClientRect();
+		before_x = e.clientX - rect.left;
+		before_y = e.clientY - rect.top;
+
+    chat_message.push('dummy');
+    draw(chat_message);
+  }
+
+  function mouseUpHandler(){
+    if(!keepDropperMode && dropperMode && event.target != document.getElementById('dropper')) {
+      changeDropperMode(false);
+      alpha = 1;
+      return;
+    }
+    var chat_message = [];
+    chat_message[0] = "up";
+
+    if(eraseMode) eraser.style.display = 'none';
+
+    document.body.removeEventListener('touchmove', mouseMoveHandler, false);
+    document.body.removeEventListener('mousemove', mouseMoveHandler, false);
+
+    if(((buffers.length != 0 && buffers[0] != theCanvas.toDataURL()) || buffers.length == 0) && event.srcElement.id == 'canvas') {
+      if(buffers[buffers.length - 1] != theCanvas.toDataURL()) buffers.push(theCanvas.toDataURL());
+      if(buffers.length > buffSize) {
+        buffers.shift();
+      }
+    }
+    if(event.srcElement.id == 'canvas') {
+      buffIdx = buffers.length;
+    }
+  }
+
+  function redo() {
+    if(buffIdx >= buffers.length - 1) return;
+    buffIdx++;
+
+    screenW = document.body.clientWidth;
+    screenH = document.body.clientHeight;
+
+    if(buffers.length < 2) return;
+
+    if(event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    let data = buffers[buffIdx];
+    if(data == theCanvas.toDataURL()) data = buffers[buffIdx];
+
+    const imageSource = data;
+    const img = document.createElement('img');
+    img.onload = function() {
+      let offsetX = (theCanvas.width - img.width)/2;
+      let offsetY = (theCanvas.height - img.height)/2;
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, theCanvas.width, theCanvas.height);
+      ctx.drawImage(img, offsetX, offsetY);
+      localStorage.setItem('drawing', theCanvas.toDataURL());
+    }
+
+    theCanvas.width = screenW;
+    theCanvas.height = screenH;// - 85;
+
+    img.src = imageSource;
+  }
+
+  function undo() {
+    if(buffIdx <= 0) return;
+    if(buffIdx == buffers.length) buffIdx--;
+    buffIdx--;
+
+    screenW = document.body.clientWidth;
+    screenH = document.body.clientHeight;
+
+    if(buffers.length < 2) return;
+
+    if(event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    let data = buffers[buffIdx];
+    if(data == theCanvas.toDataURL()) data = buffers[buffIdx];
+
+    const imageSource = data;
+    const img = document.createElement('img');
+    img.onload = function() {
+      let offsetX = (theCanvas.width - img.width)/2;
+      let offsetY = (theCanvas.height - img.height)/2;
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, theCanvas.width, theCanvas.height);
+      ctx.drawImage(img, offsetX, offsetY);
+      localStorage.setItem('drawing', theCanvas.toDataURL());
+      undoed = true;
+    }
+
+    theCanvas.width = screenW;
+    theCanvas.height = screenH;// - 85;
+
+    img.src = imageSource;
+  }
+
+  function mouseMoveHandler(e){
+    setMouseXY(e);
+    if(dropperMode) {
+      dropper(mouseX, mouseY);
+      return;
+    }
+
+    var chat_message = [];
+    chat_message[0] = "move";
+    chat_message[1] = mouseX;
+    chat_message[2] = mouseY;
+    chat_message.push('dummy');
+
+    if(eraseMode && isMobile) {
+      eraser.style.top = (mouseY - eraserRadius/2) + 'px';
+      eraser.style.left = (mouseX - eraserRadius/2) + 'px';
+    }
+
+    draw(chat_message);
+  }
+  
+  function rect_clear(){
+    if(dialog.style.display == 'block') return;
+
+    ctx.fillStyle="#ffffff";
+    ctx.fillRect(0, 0, theCanvas.width, theCanvas.height);
+    localStorage.setItem('drawing', theCanvas.toDataURL());
+    var chat_message = [];
+    
+    chat_message[0] = "clear";
+    chat_message[1] = theCanvas.width;
+    chat_message[2] = theCanvas.height;
+    chat_message.push('dummy');
+    draw(chat_message);
+    // localStorage.removeItem('drawing');
+    buffers.push(theCanvas.toDataURL());
+    buffIdx++;
+  }
+
+  function readFile(file) {
+    if(!file) return;
+    document.getElementById('file').value = '';
+
+    const reader = new FileReader(); // FileReader オブジェクトを作成
+
+    // 読み込み完了後の処理を記述
+    reader.onload = function() {
+      if(file.type.match('image/png')) {
+        const dataUri = reader.result;
+        checkWatermark(dataUri);
+        // const orientation = getOrientation(dataUri);
+        // // 傾いていれば回転させる
+        // if(orientation) {
+        //   const img = document.createElement('img');
+        //   img.onload = function() {
+        //     Promise.all([getRotatedImage(img, orientation)]).then(
+        //     (receivedList) => {
+        //       checkWatermark(receivedList[0]);
+        //     });
+        //   }
+        //   img.src = dataUri;
+        // }else{
+        //   checkWatermark(dataUri);
+        // }
+      }else{
+        alert('対応していない形式のファイルです：' + file.type + '\nこのツールで描いたPNG画像のみ読み込み可能です');
+      }
+    }
+    reader.readAsDataURL(file); // ファイルを読み込んで Data URI を取得する
+  }
+
+  function setPicture(dataUri, contain, save) {
+    
+    const img = document.createElement('img');
+    img.onload = function() {
+      setTimeout(function() {
+        let screenRatio = theCanvas.width/theCanvas.height;
+        let imgRatio = img.width/img.height;
+        if(contain) {
+          screenRatio *= -1;
+          imgRatio *= -1;
+        }
+
+        let drawW = 0;
+        let drawH = 0;
+        let offsetW = 0;
+        let offsetH = 0;
+        if(screenRatio < imgRatio) {
+          // 横長画像
+          drawH = theCanvas.height;
+          drawW = img.width * theCanvas.height/img.height;
+          offsetW = -(drawW - theCanvas.width)/2;
+        }else{
+          // 縦長画像
+          drawW = theCanvas.width;
+          drawH = img.height * theCanvas.width/img.width;
+          offsetH = -(drawH - theCanvas.height)/2;
+        }
+        ctx.fillStyle = 'rgba(255, 255, 255, 1.0)';
+        if(contain) ctx.fillRect(0, 0, theCanvas.width, theCanvas.height);
+        ctx.drawImage(img, 0, 0, img.width, img.height, offsetW, offsetH, drawW, drawH);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+        if(save) localStorage.setItem('drawing', theCanvas.toDataURL());
+      },0);
+    }
+    img.src = dataUri;
+  }
+
+  // 写真の傾きを取得する
+  // Orientation = 3 180°回転
+  // Orientation = 4 上下反転
+  // Orientation = 5 時計回りに90°回転した後、左右反転
+  // Orientation = 6 時計回りに90°回転
+  // Orientation = 7 反時計回りに90°回転した後、左右反転
+  // Orientation = 8 反時計回りに90°回転
+  function getOrientation(imgDataURL){
+    let byteString = atob(imgDataURL.split(',')[1]);
+    let orientaion = byteStringToOrientation(byteString);
+    return orientaion;
+
+    function byteStringToOrientation(img){
+      let head = 0;
+      let orientation;
+      while (1){
+        if (img.charCodeAt(head) == 255 & img.charCodeAt(head + 1) == 218) {break;}
+        if (img.charCodeAt(head) == 255 & img.charCodeAt(head + 1) == 216) {
+          head += 2;
+        }
+        else {
+          let length = img.charCodeAt(head + 2) * 256 + img.charCodeAt(head + 3);
+          let endPoint = head + length + 2;
+          if (img.charCodeAt(head) == 255 & img.charCodeAt(head + 1) == 225) {
+            let segment = img.slice(head, endPoint);
+            let bigEndian = segment.charCodeAt(10) == 77;
+            let count;
+            if (bigEndian) {
+              count = segment.charCodeAt(18) * 256 + segment.charCodeAt(19);
+            } else {
+              count = segment.charCodeAt(18) + segment.charCodeAt(19) * 256;
+            }
+            for (i=0; i < count; i++){
+              let field = segment.slice(20 + 12 * i, 32 + 12 * i);
+              if ((bigEndian && field.charCodeAt(1) == 18) || (!bigEndian && field.charCodeAt(0) == 18)) {
+                orientation = bigEndian ? field.charCodeAt(9) : field.charCodeAt(8);
+              }
+            }
+            break;
+          }
+          head = endPoint;
+        }
+        if (head > img.length){break;}
+      }
+      return orientation;
+    }
+  }
+
+  function getRotatedImage(img, orientation) {
+    return new Promise(function(resolve, reject) {
+      let newData = null;
+      let w = img.width;
+      let h = img.height;
+      const cvs = document.createElement('canvas');
+      const ctx = cvs.getContext('2d');
+
+      cvs.width = w;
+      cvs.height = h;
+
+      if(orientation == 6) {
+        cvs.width = h;
+        cvs.height = w;
+        ctx.rotate(Math.PI/2);
+        ctx.translate(0, -h);
+        ctx.drawImage(img, 0, 0, w, h);
+        newData = cvs.toDataURL('image/jpeg', 0.25);
+      }else if(orientation == 3) {
+        let tmpW = w;
+        let tmpH = h;
+        w = tmpH;
+        h = tmpW;
+
+        ctx.rotate(Math.PI/2 * 2);
+        ctx.translate(-w, -h);
+        ctx.drawImage(img, 0, 0, w, h);
+        newData = cvs.toDataURL('image/jpeg', 0.25);
+      }else if(orientation == 8) {
+        cvs.width = h;
+        cvs.height = w;
+        ctx.rotate(Math.PI/2);
+        ctx.translate(0, -h);
+        ctx.drawImage(img, 0, 0, w, h);
+        newData = cvs.toDataURL('image/jpeg', 0.25);
+      }else{
+        newData = img.src;
+      }
+      resolve(newData);
+    });
+  }
+
+  function setPenColor(value) {
+    penColor = value;
+    if(!fillMode) {
+      changeEraseMode(false);
+    }else{
+      cursorCvs.width = fillImg.width;
+      cursorCvs.height= fillImg.height;
+      cursorCtx.drawImage(fillImg, 0, 0);
+      const idata = cursorCtx.getImageData(0, 0, cursorCvs.width, cursorCvs.height);
+
+      for(let j = 0; j < idata.height; j++){
+        for(let i = 0; i < idata.width; i++){
+          const idx = (i + j * idata.width) * 4; // 画像における (i, j) で示す座標が data 配列のどこから始まるか
+          let r = idata.data[idx + 0]; // 赤
+          let g = idata.data[idx + 1]; // 緑
+          let b = idata.data[idx + 2]; // 青
+          let a = idata.data[idx + 3]; // 不透明度
+          if(r == 255 && g == 0 && b == 0) {
+            idata.data[idx + 0] = parseInt(penColor.substring(1, 3), 16);
+            idata.data[idx + 1] = parseInt(penColor.substring(3, 5), 16);
+            idata.data[idx + 2] = parseInt(penColor.substring(5, 7), 16);
+          }
+        }
+      }
+      cursorCtx.putImageData(idata, 0, 0);
+
+      document.getElementById('drawDiv').style.cursor = 'url(' + cursorCvs.toDataURL() + ') 4 18, auto';
+    }
+    document.getElementById('pen').style.backgroundImage = 'url(' + getPenIcon() + ')';
+    document.getElementById('fill').style.backgroundImage = 'url(' + getFillCursor() + ')';
+    changeDispMode();
+  }
+
+  function getFillCursor() {
+    cursorCvs.width = fillImg.width;
+    cursorCvs.height= fillImg.height;
+    cursorCtx.drawImage(fillImg, 0, 0);
+    const idata = cursorCtx.getImageData(0, 0, cursorCvs.width, cursorCvs.height);
+
+    for(let j = 0; j < idata.height; j++){
+      for(let i = 0; i < idata.width; i++){
+        const idx = (i + j * idata.width) * 4; // 画像における (i, j) で示す座標が data 配列のどこから始まるか
+        let r = idata.data[idx + 0]; // 赤
+        let g = idata.data[idx + 1]; // 緑
+        let b = idata.data[idx + 2]; // 青
+        let a = idata.data[idx + 3]; // 不透明度
+        if(r == 255 && g == 0 && b == 0) {
+          idata.data[idx + 0] = parseInt(penColor.substring(1, 3), 16);
+          idata.data[idx + 1] = parseInt(penColor.substring(3, 5), 16);
+          idata.data[idx + 2] = parseInt(penColor.substring(5, 7), 16);
+        }
+      }
+    }
+    cursorCtx.putImageData(idata, 0, 0);
+    return cursorCvs.toDataURL();
+  }
+
+  function getPenIcon() {
+    cursorCvs.width = penImg.width;
+    cursorCvs.height= penImg.height;
+    cursorCtx.drawImage(penImg, 0, 0);
+    const idata = cursorCtx.getImageData(0, 0, cursorCvs.width, cursorCvs.height);
+
+    for(let j = 0; j < idata.height; j++){
+      for(let i = 0; i < idata.width; i++){
+        const idx = (i + j * idata.width) * 4; // 画像における (i, j) で示す座標が data 配列のどこから始まるか
+        let r = idata.data[idx + 0]; // 赤
+        let g = idata.data[idx + 1]; // 緑
+        let b = idata.data[idx + 2]; // 青
+        let a = idata.data[idx + 3]; // 不透明度
+        if(r == 255 && g == 0 && b == 0) {
+          idata.data[idx + 0] = parseInt(penColor.substring(1, 3), 16);
+          idata.data[idx + 1] = parseInt(penColor.substring(3, 5), 16);
+          idata.data[idx + 2] = parseInt(penColor.substring(5, 7), 16);
+        }
+      }
+    }
+    cursorCtx.putImageData(idata, 0, 0);
+    return cursorCvs.toDataURL();
+  }
+
+  function changePenMode(value) {
+    eraseMode = false;
+    fillMode = false;
+    pastFill = false;
+    dropperMode = false;
+    document.getElementById('penSize').value = penSize;
+    changeDispMode();
+  }
+
+  function changeEraseMode(value) {
+    eraseMode = value;
+    if(eraseMode) {
+      pastFill = fillMode;
+
+      dropperMode = false;
+      fillMode = false;
+      document.getElementById('penSize').value = eraserRadius;
+    }else{
+      if(dropperMode) changeDropperMode(true);
+      document.getElementById('penSize').value = penSize;
+    }
+    changeDispMode();
+  }
+
+  function changeFillMode(value) {
+    fillMode = value;
+    if(fillMode) {
+      if(dropperMode) changeDropperMode(false);
+      changeEraseMode(false);
+    }else{
+      if(dropperMode) {
+        changeDropperMode(true);
+      }else if(eraseMode) {
+        document.getElementById('penSize').value = eraserRadius;
+      }else{
+        document.getElementById('penSize').value = penSize;
+      }
+    }
+    pastFill = fillMode;
+    changeDispMode();
+  }
+
+  function changePenSize(size) {
+    if(eraseMode) {
+      eraserRadius = document.getElementById('penSize').value;
+      eraser.style.width = eraserRadius + 'px';
+      eraser.style.height= eraserRadius + 'px';
+      eraser.style.borderRadius = eraserRadius + 'px';
+      changeCursorSize(eraserRadius, true);
+    }else{
+      penSize = document.getElementById('penSize').value;
+      changeCursorSize(penSize, false);
+    }
+
+    if(size) {
+      changeFillMode(false);
+    }
+  }
+
+  function changeAlpha() {
+    alpha = Math.pow(document.getElementById('alpha').value, 2);
+  }
+
+  async function savePicture() {
+    localStorage.setItem('drawing', theCanvas.toDataURL());
+  }
+
+  function resume() {
+    const data = localStorage.getItem('drawing');
+    if(data) setPicture(data, true);
+  }
+
+  window.onresize = function() {
+    screenW = document.body.clientWidth;
+    screenH = document.body.clientHeight;
+    theCanvas.width = screenW;
+    theCanvas.height = screenH;
+    setPicture(localStorage.getItem('drawing'), true);
+
+//     if(buffers.length && buffIdx > 0) {
+//       const tmpIdx = buffIdx;
+//       undo();
+//       redo();
+//       if(tmpIdx < buffIdx) {
+//         alert(tmpIdx + ':' + buffIdx);
+//       }
+//     }else{
+//       screenW = document.body.clientWidth;
+//       screenH = document.body.clientHeight;
+//       theCanvas.width = screenW;
+//       theCanvas.height = screenH;// - 85;
+//       ctx.fillStyle = "#ffffff";
+//       ctx.fillRect(0, 0, theCanvas.width, theCanvas.height);
+//     }
+
+    if(parseInt(toolbox.style.left.replace('px', '')) > document.body.clientWidth - 30) {
+      // toolbox.style.left = (document.body.clientWidth - parseInt(toolbox.style.width.replace('px', ''))) + 'px';
+      toolbox.style.left = (document.body.clientWidth - 30) + 'px';
+    }
+    if(parseInt(toolbox.style.top.replace('px', '')) > document.body.clientHeight - 30) {
+      // toolbox.style.top = (document.body.clientHeight - toolbox.clientHeight) + 'px';
+      toolbox.style.top = (document.body.clientHeight - 30) + 'px';
+    }
+
+    if(parseInt(toolbox.style.left.replace('px', '')) < -parseInt(toolbox.style.width.replace('px', '')) + 30) {
+      toolbox.style.left = (30 - parseInt(toolbox.style.width.replace('px', ''))) + 'px';
+    }
+    if(parseInt(toolbox.style.top.replace('px', '')) < -toolbox.clientHeight + 30) {
+      toolbox.style.top = (30 - toolbox.clientHeight) + 'px';
+    }
+  }
+
+  function getPixel(imageData, x, y) {
+    if (x < 0 || y < 0 || x >= imageData.width || y >= imageData.height) {
+      return [-1, -1, -1, -1];  // impossible color
+    } else {
+      const offset = (y * imageData.width + x) * 4;
+      return imageData.data.slice(offset, offset + 4);
+    }
+  }
+
+  function setPixel(imageData, x, y, color) {
+    const offset = (y * imageData.width + x) * 4;
+    imageData.data[offset + 0] = color[0];
+    imageData.data[offset + 1] = color[1];
+    imageData.data[offset + 2] = color[2];
+    imageData.data[offset + 3] = color[3];
+  }
+
+  function colorsMatch(a, b, rangeSq) {
+    const dr = a[0] - b[0];
+    const dg = a[1] - b[1];
+    const db = a[2] - b[2];
+    const da = a[3] - b[3];
+    return dr * dr + dg * dg + db * db + da * da < rangeSq;
+  }
+
+  function floodFill(ctx, x, y, fillColor, range = 1) {
+    // read the pixels in the canvas
+    const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+
+    // flags for if we visited a pixel already
+    const visited = new Uint8Array(imageData.width * imageData.height);
+
+    // get the color we're filling
+    const targetColor = getPixel(imageData, x, y);
+
+    // range が 1 のときだけ意味ある
+    if(range <= 1 && targetColor[0] == fillColor[0] && targetColor[1] == fillColor[1] && targetColor[2] == fillColor[2] && targetColor[3] == fillColor[3]) {
+      return;
+    }
+
+    // check we are actually filling a different color
+    const rangeSq = range * range;
+    const pixelsToCheck = [x, y];
+    while (pixelsToCheck.length > 0) {
+      const y = pixelsToCheck.pop();
+      const x = pixelsToCheck.pop();
+      const currentColor = getPixel(imageData, x, y);
+      if (!visited[y * imageData.width + x] &&
+        colorsMatch(currentColor, targetColor, rangeSq)) {
+        setPixel(imageData, x, y, fillColor);
+        visited[y * imageData.width + x] = 1;  // mark we were here already
+
+        pixelsToCheck.push(x + 1, y);
+        pixelsToCheck.push(x - 1, y);
+        pixelsToCheck.push(x, y + 1);
+        pixelsToCheck.push(x, y - 1);
+      }
+    }
+
+    // put the data back
+    ctx.putImageData(imageData, 0, 0);
+    localStorage.setItem('drawing', theCanvas.toDataURL());
+  }
+
+  function addWatermark() {
+    const url = '/addwatermark';
+    const req = new XMLHttpRequest();
+    // const dataUri = (confirm('トリミングしますか？')) ? getCroppedImage() : theCanvas.toDataURL();
+    const dataUri = theCanvas.toDataURL();
+    req.onreadystatechange = function() {
+      if(req.readyState == 4) {
+        if(req.status == 200) {
+          dlPicture(req.response);
+        }
+      }
+    }
+    req.open('POST', url, true);
+    req.send(JSON.stringify({dataUri:dataUri}));
+  }
+
+  function checkWatermark(dataUri) {
+    const url = '/checkwatermark';
+    const req = new XMLHttpRequest();
+
+    req.onreadystatechange = function() {
+      if(req.readyState == 4) {
+        if(req.status == 200) {
+          setPicture(req.response, true, true);
+        }else{
+          alert(req.responseText);
+        }
+      }
+    }
+    req.open('POST', url, true);
+    req.send(JSON.stringify({dataUri:dataUri}));
+  }
+
+  function dlPicture(data) {
+    const dataUri = data ? data : theCanvas.toDataURL();
+    const dlAnchor = document.createElement('a');
+    dlAnchor.download = 'toshi-giri-' + getYMD() + '.png';
+
+    let isApple = false;
+    let isMS = false;
+
+    if (navigator.userAgent.indexOf('iPhone') != -1 || navigator.userAgent.indexOf('iPad') > 0 || navigator.userAgent.indexOf('Safari') != -1) {
+      isApple = true;
+    }
+    if (navigator.userAgent.indexOf('Trident') != -1 || navigator.userAgent.indexOf('Edge') != -1) {
+      isMS = true;
+    }
+
+    const dlUrl = window.URL || window.webkitURL;
+    if(isApple || navigator.userAgent.indexOf('Mac OS') != -1) dlAnchor.target = '_blank';
+    dlAnchor.href = (isMS)? dlUrl.createObjectURL(getBlob(dataUri)) : dataUri.replace('image/png', 'application/octet-stream');
+    dlAnchor.style.display = 'none';
+    document.body.appendChild(dlAnchor);
+    dlAnchor.click();
+    dlAnchor.parentNode.removeChild(dlAnchor);
+    // for(let i in dlAnchor) {
+    //   if(i.startsWith('on'))alert(i);
+    // }
+    // setTimeout(function() {
+    //   setPicture(dataUri, true);
+    // }, 3000);
+  }
+
+  function getBlob(dataURI) {
+    let byteString = atob(dataURI.split(',')[1]) ;
+    let mimeType = dataURI.match(/(:)([a-z\/]+)(;)/)[2] ;
+
+    let content;
+    for(let i = 0, l = byteString.length, content = new Uint8Array(l); l > i; i++) {
+      content[i] = byteString.charCodeAt(i) ;
+    }
+    return new Blob([content], {type: mimeType});
+  }
+
+  function getYMD() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    const date = now.getDate();
+    const hour = now.getHours();
+    const minute = now.getMinutes();
+    const second = now.getSeconds();
+    const monthStr = ('0' + month).slice(-2);
+    const dateStr = ('0' + date).slice(-2);
+    const hourStr = ('0' + hour).slice(-2);
+    const minuteStr = ('0' + minute).slice(-2);
+    const secondStr = ('0' + second).slice(-2);
+    return year + '' + monthStr + '' + dateStr + '_' + hourStr + '' + minuteStr + '' + secondStr;
+  }
+
+  function changeDropperMode(value) {
+    value ? dropperMode = value : dropperMode = !dropperMode;
+    if(dropperMode) {
+      eraseMode = false;
+      fillMode = pastFill;
+    }else{
+      // if(lastToolboxVisibility) toggleToolboxVisibility(true);
+      keepDropperMode = false;
+      resetCursor();
+    }
+    changeDispMode();
+  }
+
+  function dropper(x, y) {
+    const idata = ctx.getImageData(x, y, 1, 1);
+    // 透明じゃなければ
+    if(idata.data[3]) {
+      const r = ('0' + idata.data[0].toString(16)).slice(-2);
+      const g = ('0' + idata.data[1].toString(16)).slice(-2);
+      const b = ('0' + idata.data[2].toString(16)).slice(-2);
+      penColor = '#' + r + g + b;
+      document.getElementById('alpha').value = 1;
+      document.getElementById('penColor').value = penColor;
+    }
+
+    setPenColor(penColor);
+  }
+
+  function cropImage() {
+    const dataUri = getCroppedImage();
+    rect_clear();
+    setPicture(dataUri, true);
+  }
+
+  function getCroppedImage() {
+    let idata = ctx.getImageData(0, 0, theCanvas.width, theCanvas.height);
+
+    let left = theCanvas.width;
+    let right = 0;
+    let top = theCanvas.height;
+    let bottom = 0;
+    let baseR = 255;
+    let baseG = 255;
+    let baseB = 255;
+    for(let j = 0; j < idata.height; j++){
+      for(let i = 0; i < idata.width; i++){
+        const idx = (i + j * idata.width) * 4; // 画像における (i, j) で示す座標が data 配列のどこから始まるか
+
+        if(i == 0 && j == 0) {
+          // 左上を背景色と見なす
+          baseR = idata.data[idx + 0];
+          baseG = idata.data[idx + 1];
+          baseB = idata.data[idx + 2];
+        }else{
+          if(Math.abs(idata.data[idx] - baseR) > 1 || Math.abs(idata.data[idx + 1] - baseG) > 1 || Math.abs(idata.data[idx + 2] - baseB) > 1) {
+            left = Math.min(left, i);
+            right = Math.max(right, i);
+            top = Math.min(top, j);
+            bottom = Math.max(bottom, j);
+          }
+        }
+      }
+    }
+
+    const tmpCanvas = document.createElement('canvas');
+    const tmpCtx = tmpCanvas.getContext('2d');
+
+    const offsetW = 20;
+    const offsetH = 20;
+
+    if(left   > offsetW/2) left = left - offsetW/2;
+    if(top    > offsetH/2) top  = top  - offsetH/2;
+    if(right  < theCanvas.width - offsetW/2) right  = right + offsetW/2;
+    if(bottom < theCanvas.height- offsetH/2) bottom = bottom+ offsetH/2;
+
+    tmpCanvas.width = right - left + 1;
+    tmpCanvas.height = bottom - top + 1;
+    tmpCtx.fillStyle = 'rgba(255, 255, 255, 1.0)';
+    tmpCtx.fillRect(0, 0, tmpCanvas.width, tmpCanvas.height);
+    tmpCtx.putImageData(idata, -left, -top);
+    return tmpCanvas.toDataURL();
+  }
+
+  function resetCursor() {
+    if(fillMode) {
+      changeFillMode(true);
+    }else if(eraseMode) {
+      changeCursorSize(eraserRadius, true);
+    }else{
+      changeCursorSize(penSize, false);
+    }
+  }
+
+  function makeFillCursor() {
+    cursorCvs.width = fillImg.width;
+    cursorCvs.height= fillImg.height;
+    cursorCtx.drawImage(fillImg, 0, 0);
+    const idata = cursorCtx.getImageData(0, 0, cursorCvs.width, cursorCvs.height);
+
+    for(let j = 0; j < idata.height; j++){
+      for(let i = 0; i < idata.width; i++){
+        const idx = (i + j * idata.width) * 4; // 画像における (i, j) で示す座標が data 配列のどこから始まるか
+        let r = idata.data[idx + 0]; // 赤
+        let g = idata.data[idx + 1]; // 緑
+        let b = idata.data[idx + 2]; // 青
+        let a = idata.data[idx + 3]; // 不透明度
+        if(r == 255 && g == 0 && b == 0) {
+          idata.data[idx + 0] = parseInt(penColor.substring(1, 3), 16);
+          idata.data[idx + 1] = parseInt(penColor.substring(3, 5), 16);
+          idata.data[idx + 2] = parseInt(penColor.substring(5, 7), 16);
+        }
+      }
+    }
+    cursorCtx.putImageData(idata, 0, 0);
+    document.getElementById('drawDiv').style.cursor = 'url(' + cursorCvs.toDataURL() + ') 4 18, auto';
+  }
+
+  function getBoxSize(dataUrl) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = function() {
+        let w = parseInt(document.getElementById('rawImage').style.width.replace('px', ''));
+        let h = parseInt(document.getElementById('rawImage').style.height.replace('px', ''));
+        let x = 0;
+        let y = 0;
+        if(img.height < img.width) {
+          h = Math.ceil(w * (img.height/img.width));
+          y = (w - h)/2;
+        }else{
+          w = Math.ceil(h * (img.width/img.height));
+          x = (h - w)/2;
+        }
+        resolve({w:w, h:h, x:x, y:y});
+      }
+      img.src = dataUrl;
+    });
+  }
+
+  function sendPicture() {
+    const idata = ctx.getImageData(0, 0, theCanvas.width, theCanvas.height);
+    let drawed = false;
+    let lastColor = 0;
+    for(let i = 0; i < idata.data.length; i++) {
+      if(i == 0) lastColor = idata.data[i];
+
+      if(Math.abs(idata.data[i] - lastColor) > 1 && i % 4 != 3) {
+        drawed = true;
+        break;
+      }
+    }
+    if(!drawed) {
+      alert('絵が認識できないので添付できません');
+      // window.close();
+      return;
+    }
+
+    const orgImg = theCanvas.toDataURL();
+    const croppedImg = getCroppedImage();
+
+    if(orgImg != croppedImg) {
+      dialog.style.display = 'block';
+
+      (async function() {
+        const sizeOrg = await getBoxSize(orgImg);
+        document.getElementById('rawImage').style.width = parseInt(sizeOrg.w) + 'px';
+        document.getElementById('rawImage').style.height = parseInt(sizeOrg.h) + 'px';
+        document.getElementById('rawImage').style.backgroundImage = 'url(' + orgImg + ')';
+        // document.getElementById('rawImage').style.marginLeft = parseInt(sizeOrg.x) + 'px';
+        // document.getElementById('rawImage').style.marginTop = parseInt(sizeOrg.y) + 'px';
+
+        const sizeCrop = await getBoxSize(croppedImg);
+        document.getElementById('croppedImage').style.width = parseInt(sizeCrop.w) + 'px';
+        document.getElementById('croppedImage').style.height = parseInt(sizeCrop.h) + 'px';
+        document.getElementById('croppedImage').style.backgroundImage = 'url(' + croppedImg + ')';
+        // document.getElementById('croppedImage').style.marginLeft = parseInt(sizeCrop.x) + 'px';
+        // document.getElementById('croppedImage').style.marginTop = parseInt(sizeCrop.y) + 'px';
+      })();
+
+      dlg_yes.addEventListener('click', async function() {
+        localStorage.setItem('drawing', croppedImg);
+        if(window.opener) {
+          const messages = ['正常', 'localStorage に drawing が無い', 'resizedImg に変換できていない'];
+          let status = await window.opener.setImage();
+          if(status == 0) {
+            window.close();
+          }else{
+            alert('status は ' + status + '\n' + messages[status]);
+          }
+        // }else if(window.parent) {
+        //   window.parent.setImage();
+        //   window.close();
+        }else{
+          document.getElementById('finishBtn').innerText = '保存';
+          alert('一時保存しました。\n回答ページからこの画面を開いて「完了」を押してください。');
+        }
+      });
+      dlg_no.addEventListener('click', async function(){
+        localStorage.setItem('drawing', orgImg);
+        if(window.opener) {
+          const messages = ['正常', 'localStorage に drawing が無い', 'resizedImg に変換できていない'];
+          let status = await window.opener.setImage();
+          if(status == 0) {
+            window.close();
+          }else{
+            alert('status は ' + status + '\n' + messages[status]);
+          }
+        }else{
+          document.getElementById('finishBtn').innerText = '保存';
+          alert('一時保存しました。\n回答ページからこの画面を開いて「完了」を押してください。');
+        }
+      });
+      dlg_cancel.addEventListener('click', function() {
+        dialog.style.display = 'none';
+      });
+    }else{
+      (async function() {
+        localStorage.setItem('drawing', orgImg);
+        if(window.opener) {
+          const messages = ['正常', 'localStorage に drawing が無い', 'resizedImg に変換できていない'];
+          let status = await window.opener.setImage();
+          if(status == 0) {
+            window.close();
+          }else{
+            alert('status は ' + status + '\n' + messages[status]);
+          }
+        }else{
+          document.getElementById('finishBtn').innerText = '保存';
+          alert('一時保存しました。\n回答ページからこの画面を開いて「完了」を押してください。');
+        }
+      })();
+    }
+
+    // confirm('適当にトリミングします？') ? localStorage.setItem('drawing', getCroppedImage()) : localStorage.setItem('drawing', theCanvas.toDataURL());
+  }
+
+  function changeDispMode() {
+    const pen = document.getElementById('pen');
+    const eraser = document.getElementById('eraser');
+    const fill = document.getElementById('fill');
+    const dropper = document.getElementById('dropper');
+    const modeName = document.getElementById('modeName');
+
+    if(eraseMode) {
+      eraser.style.borderStyle = 'dotted';
+      eraser.style.borderColor = '#F00';
+      eraser.style.backgroundColor = '#FF9';
+      document.getElementById('tool_pen').style.display = 'block';
+      document.getElementById('tool_fill').style.display = 'none';
+      document.getElementById('tool_color').style.display = 'none';
+      document.getElementById('tool_alpha').style.display = 'none';
+      changeCursorSize(eraserRadius, true);
+
+      pen.style.borderStyle = 'solid';
+      pen.style.borderColor = '#999';
+      pen.style.backgroundColor = '#FFF';
+      modeName.innerText = '消しゴム';
+    }else{
+      eraser.style.borderStyle = 'solid';
+      eraser.style.borderColor = '#999';
+      eraser.style.backgroundColor = '#FFF';
+      document.getElementById('tool_color').style.display = 'block';
+      document.getElementById('tool_alpha').style.display = 'block';
+    }
+
+    if(fillMode) {
+      fill.style.borderStyle = 'dotted';
+      fill.style.borderColor = '#F00';
+      fill.style.backgroundColor = '#FF9';
+      fill.style.backgroundImage = 'url(' + getFillCursor() + ')';
+      document.getElementById('tool_pen').style.display = 'none';
+      document.getElementById('tool_fill').style.display = 'block';
+      makeFillCursor();
+
+      pen.style.borderStyle = 'solid';
+      pen.style.borderColor = '#999';
+      pen.style.backgroundColor = '#FFF';
+      modeName.innerText = '塗り潰し';
+    }else{
+      fill.style.borderStyle = 'solid';
+      fill.style.borderColor = '#999';
+      fill.style.backgroundColor = '#FFF';
+      if(eraseMode) {
+        document.getElementById('tool_pen').style.display = 'block';
+        document.getElementById('tool_fill').style.display = 'none';
+        document.getElementById('tool_color').style.display = 'none';
+        document.getElementById('tool_alpha').style.display = 'none';
+      }else{
+        document.getElementById('tool_pen').style.display = 'block';
+        document.getElementById('tool_fill').style.display = 'none';
+        document.getElementById('tool_color').style.display = 'block';
+        document.getElementById('tool_alpha').style.display = 'block';
+      }
+    }
+
+    if(!eraseMode && !fillMode) {
+      pen.style.borderStyle = 'dotted';
+      pen.style.borderColor = '#F00';
+      pen.style.backgroundColor = '#FF9';
+      pen.style.backgroundImage = 'url(' + getPenIcon() + ')';
+      changeCursorSize(penSize, false);
+      modeName.innerText = 'ペン';
+      pastFill = false;
+    }else{
+      pen.style.borderStyle = 'solid';
+      pen.style.borderColor = '#999';
+      pen.style.backgroundColor = '#FFF';
+    }
+
+    if(dropperMode) {
+      dropper.style.borderStyle = 'dotted';
+      dropper.style.borderColor = '#F00';
+      dropper.style.backgroundColor = '#FF9';
+      // modeName.innerText = '消しゴム';
+      document.getElementById('tool_color').style.display = 'block';
+      document.getElementById('tool_alpha').style.display = 'block';
+
+      document.getElementById('drawDiv').style.cursor = 'url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAACqSURBVDhPrZTdDoAgCEalyx64d6j3rVvzM3Rk+N/ZmtDGCWyD7LmbP1n4/A2y1nLYDxH5Yucgcx3+3VCHEAUZkHGzMBTJYo0mYU3mR2aahLKgRtcdaj8w/VjzyEEmpakMVIVSBlzOkX6nRaEmQ1d4kIdTkhXmZJyqMqAKa7ISH+GMDLyEszIQhZBx6BmRAW3kYRnAjE8gOnRLtyxbNw4EvL6icJqZfZjHmBtWUG0dodcWZwAAAABJRU5ErkJggg==) ' + 0 + ' ' + 18 + ', auto';
+      if(!eraseMode && !fillMode) {
+        pastFill = false;
+      }
+    }else{
+      dropper.style.borderStyle = 'solid';
+      dropper.style.borderColor = '#999';
+      dropper.style.backgroundColor = '#FFF';
+    }
+  }
+</script>
+
+</head>
+<body>
+  <div class="box">
+    <div id="drawDiv" style="margin:0px;padding:0px;">
+      <canvas id="canvas" width="0" height="0" style="margin:0px;padding:0px;"></canvas>
+    </div>
+  </div>
+
+  <button id="showTool" onclick="toggleToolboxVisibility(1)" style="display:none;position:absolute;right:5px;bottom:5px;background-color:#F0F0F0; font-size:9px;border-radius:30px;outline:none;margin:0px;height:25px;" title="ツールボックスを表示&#10;Tで切り替え">
+    ツールボックス表示
+  </button>
+
+  <div id="toolbox" style="position:absolute;left:5px;top:5px;width:230px;display:block;border:1px solid rgb(0,0,0,0.75);padding:0px;border-radius:6px;">
+    <div id="toolNob" style="height:20px;background-color:rgba(0,0,0,0.75);text-align:right;border-radius:5px 5px 0px 0px;"><span id="modeName" style="font-size:14px;display:inline-block;vertical-align:top;margin-right:10px;">ペン</span><input type="button" onclick="closeToolbox()" title="ツールボックスを閉じる&#10;Tで切り替え" style="border-radius:5px;font-size:18px;width:20px;height:20px;background-color:#FFF;background-size:10px 10px;background-repeat:no-repeat;background-position:50% 50%;background-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsIAAA7CARUoSoAAAABFSURBVChThY8BCgAgCANd//+zudJSCTqocI6NoIZc4O/RBi8A6xhcaJq3IciLgAbW7CnhGkrCCxpWZ8c1LQmM7XWfb4pMjtUaETBuIHUAAAAASUVORK5CYII=);"/></div>
+
+    <div class="flexContainer" style="width:100%;">
+      <div style="margin:0px;width:35%;background-color:rgba(63,63,127,0.75);padding:0px;border-width:0px 1px 0px 0px;border-style:dotted;border-color:#BBB;border-radius:0px 0px 0px 5px;">
+        <div style="margin:0px;padding:0px;">
+          <div style="white-space:nowraw;padding:5px 0px 5px 5px;margin:0px; border-width:0px 0px 0px 0px;border-style:dotted;border-color:#BBB;">
+            <button id="finishBtn" onclick="sendPicture()" style="display:none;font-size:10px;background-color:#E0FFF0; padding:3px;border-radius:30px;outline:none;margin:0px;height:25px;">完了</button>
+            <!-- button onclick="resume()" style="display:inline-block;font-size:10px;background-color:#CEF; padding:3px;border-radius:30px;outline:none;margin:0px;height:25px;">復元</button -->
+            <button id="clearBtn" onclick="rect_clear()" style="display:inline-block;font-size:10px;background-color:#FCC; padding:3px;border-radius:30px;outline:none;margin:0px;height:25px;">消去</button>
+          </div>
+
+          <div style="white-space:nowraw;padding:10px 0px 5px 5px;margin:0px; border-width:0px 0px 0px 0px;border-style:dotted;border-color:#BBB;">
+            <button id="undo" onclick="undo()" style="display:inline-block;background-color:#F0F0F0; font-size:10px;padding:3px;border-radius:30px;outline:none;margin:0px;height:25px;" title="戻す&#10;Ctrl+Z">戻す</button>
+            <button id="redo" onclick="redo()" style="display:inline-block;background-color:#F0F0F0; font-size:10px;padding:3px;border-radius:30px;outline:none;margin:0px;height:25px;" title="進む&#10;Ctrl+Y">進む</button>
+          </div>
+
+          <!-- div style="white-space:nowraw;padding:10px 0px 5px 5px;">
+            <button id="openFile" title="ファイルを開く&#10;Ctrl+O" onclick="document.getElementById('file').click()" style="display:inline-block;background-color:#FFF; border-radius:5px;outline:none;margin-right:5px;outline:none;padding:0px;width:28px;height:28px;background-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAB9SURBVDhP5ZRLDsAgCESh2x64Z+iBu6aOsjASEou46kuMaALO+GMRoUwO7dNIL1gtM7PxXeZZw08gSeS526iDzytU1LWMRaB8pmlKxVU4y+gk/1BKMwqxahS3YGQbkGcsrxTDXu59KavqEO9TmKEOpCus16aFcXqFv/tgiV6GZUohmt1BdAAAAABJRU5ErkJggg==);background-repeat:no-repeat;background-position:70% 50%;">&nbsp;</button><input id="file" type="file" accept="image/png" onchange="readFile(this.files.item(0))" style="display:none;"/>
+            <button id="saveFile" title="ダウンロード&#10;Ctrl+S" onclick="addWatermark()" style="display:inline-block;background-color:#FFF; border-radius:5px;outline:none;margin-right:0px;outline:none;padding:0px;width:28px;height:28px;background-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAACKSURBVDhP5ZRBC4AwCIU1OvWDu2bH+r91td5yUBSslkXQB49kYw+dLtahI08K+/qBDFU1hHcED3gtJVc1MbOKYO86IgxHprGn0tY2NI0FCdrWghXud/hDQ/cuf7/kwzkEqVk8mkHwbsnIIuosz2WItqP9t4m/rygs5Sicn712Jc8bnCM7bi/FDaIJ/YCKxkvCj/8AAAAASUVORK5CYII=);background-repeat:no-repeat;background-position:50% 50%;">&nbsp;</button>
+          </div -->
+        </div>
+      </div>
+      <div style="margin:0px;width:65%;background-color:rgba(63,63,127,0.75);padding:0px;border-radius:0px 0px 5px 0px;">
+        <div style="margin:0px 0px 10px 0px;padding-bottom:4px;border-width:0px 0px 1px 0px;border-style:dotted;border-color:#BBB;">
+          <span style="display:inline-block;margin:3px 0px 0px 3px;position:relative;" title="ペンモード&#10;スペースで切り替え"><button id="pen" onclick="changePenMode(true)" style="background-color:#FFF; border-radius:8px;border-color:#999;border-style:solid;outline:none;outline:none;padding:0px;width:28px;height:28px;background-repeat:no-repeat;background-position:50% 50%;">&nbsp;</button></span>
+          <span style="display:inline-block;margin:3px 0px 0px 3px;position:relative;" title="消しゴムモード&#10;Eで切り替え"><button id="eraser" onclick="changeEraseMode(true)" style="background-color:#FFF; border-radius:8px;border-color:#999;border-style:solid;outline:none;outline:none;padding:0px;width:28px;height:28px;background-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAACvSURBVDhPrdSBDoMwCEXRsh+f+3LGw2JqC4jRmxhrdSc16oiZ25t9+r4cEaUruAUq9uUULYOGaQlaAk+YFaCXoItZDpqCKWZNaAiWMGtAXfAWhn7U5H0mDBfwCYZOIDD9cuSiUhOGDvDApBLqYEjBEbNSNMCQgjgp6cSYiyaYhh/Zth+uYV4elO5xmG3L35d3+wh3IPPxynoLiID2YViEu+CTQpC2PriIp+teXmFrf/O9qtWniyO6AAAAAElFTkSuQmCC);background-repeat:no-repeat;background-position:50% 50%;">&nbsp;</button></span>
+          <span id="fillTitle" style="display:inline-block;margin:3px 0px 0px 3px;position:relative;" title="塗りつぶしモード&#10;Fで切り替え"><button id="fill" onclick="changeFillMode(true)" style="background-color:#FFF; border-radius:8px;border-color:#999;border-style:solid;outline:none;outline:none;padding:0px;width:28px;height:28px;background-repeat:no-repeat;background-position:50% 50%;">&nbsp;</button></span>
+          <span id="dropperTitle" style="display:inline-block;margin:3px 0px 0px 3px;position:relative;" title="スポイトツール&#10;Sで切り替え"><button id="dropper" onclick="changeDropperMode()" style="background-color:#FFF; border-radius:8px;border-color:#999;border-style:solid;outline:none;outline:none;padding:0px;width:28px;height:28px;background-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAACqSURBVDhPrZTdDoAgCEalyx64d6j3rVvzM3Rk+N/ZmtDGCWyD7LmbP1n4/A2y1nLYDxH5Yucgcx3+3VCHEAUZkHGzMBTJYo0mYU3mR2aahLKgRtcdaj8w/VjzyEEmpakMVIVSBlzOkX6nRaEmQ1d4kIdTkhXmZJyqMqAKa7ISH+GMDLyEszIQhZBx6BmRAW3kYRnAjE8gOnRLtyxbNw4EvL6icJqZfZjHmBtWUG0dodcWZwAAAABJRU5ErkJggg==);background-repeat:no-repeat;background-position:50% 50%;">&nbsp;</button></span>
+        </div>
+
+        <div id="tool_color" style="">
+          <div style="display:block;">
+            <span class="toolLabel">色</span><input title="色選択&#10;Cで開く" id="penColor" type="color" style="border:2px solid #FFF;display:block;width:24px;height:24px;outline:none;padding:0px;display:inline-block;" onclick="(function(){dropperMode=false;changeDispMode();})()" onchange="setPenColor(this.value)"/>
+          </div>
+        </div>
+
+        <div id="tool_pen" style="display:block;">
+          <div id="tool_width" style="display:block;">
+            <span class="toolLabel">太</span><input title="ペンの太さ&#10;ペンモード時に矢印キー上下" id="penSize" type="range" min="1" max="126" step="1" value="5" onchange="changePenSize(this.value)" style="width:100px;height:16px;"/>
+          </div>
+          <div id="tool_alpha" style="display:block;">
+            <span class="toolLabel">濃</span><input title="ペンの濃さ&#10;ペンモード時に矢印キー左右" id="alpha" type="range" min="0.05" max="1.0" step="0.01" value="1" onchange="changeAlpha()" style="width:100px;height:16px;"/>
+          </div>
+        </div>
+
+        <div id="tool_fill" style="padding:0px;display:none;">
+          <div style="display:block;">
+            <!-- span style="font-size:12px;display:inline-block;margin-right:10px;">範囲</span><input title="塗り範囲&#10;塗りつぶしモード時に矢印キー上下" type="range" min="0" max="255" value="192" step="1" id="rangeValue" onchange="changeFillMode(true)" style="-webkit-transform:rotate(90deg);-moz-transform:rotate(90deg);-o-transform:rotate(90deg);transform:rotate(90deg);width:36px;height:16px;margin-left:-5px;"/ -->
+            <span class="toolLabel">範囲</span><input title="塗り範囲&#10;塗りつぶしモード時に矢印キー上下" type="range" min="1" max="255" value="63" step="1" id="rangeValue" onchange="changeFillMode(true)" style="width:80px;height:16px;"/>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="dialog" style="padding:15px;">
+    <p style="margin:0px;color:#000;">適当にトリミングします？</p>
+    <div style="margin:5px 0px;">
+      <div id="rawImage" style="position:relative;display:inline-block;width:100px;height:100px;border:1px solid #000;background-size:100% 100%;background-repeat:no-repeat;background-position:50% 50%;background-color:#000;"></div>
+      <div style="display:inline-block;width:20px;height:100px;background-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsIAAA7CARUoSoAAAABySURBVDhPnZFRDsAgCENxFzeenK1kGphrIrwfksY+MTZVlTGGykPvvWFOWO653mnMwheWAxP4G/xhlnvWBlVJeEJFEgQgK9kEICOxb2SUN8hABSe3I/8VnJYxN0GmDIIgWwZLUCkDE1TLIDyBHWK5iMgNG6d0m3Ai+M4AAAAASUVORK5CYII=);background-repeat:no-repeat;background-position:50% 50%;"></div>
+      <div id="croppedImage" style="position:relative;display:inline-block;width:100px;height:100px;border:1px solid #000;background-size:100% 100%;background-repeat:no-repeat;background-position:50% 50%;background-color:#000;"></div>
+    </div>
+    <button id="dlg_yes" style="font-size:14px;width:90px;">はい</button>
+    <button id="dlg_no" style="font-size:14px;width:90px;">いいえ</button>
+    <button id="dlg_cancel" style="font-size:12px;width:90px;">キャンセル</button>
+  </div>
+</body>
+</html>

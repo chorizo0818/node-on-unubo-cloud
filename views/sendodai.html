@@ -1,0 +1,1065 @@
+<!DOCTYPE html>
+<html lang="ja" style="height:100%;">
+  <head>
+    <title>出題</title>
+    <meta http-equiv="Content-Style-Type" content="text/css">
+    <meta http-equiv="Content-Script-Type" content="text/javascript">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta http-equiv="Pragma" content="no-cache"><!-- 古い -->
+    <meta http-equiv="Cache-Control" content="no-store"><!-- 古い -->
+    <meta http-equiv="Expires" content="0"><!-- 古い -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+table {
+  background:#FEE;
+  border: 1px solid #999;
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: 6px;
+}
+table thead th,
+table tbody th,
+table tbody td {
+  padding: .6em 3em;
+  border-bottom: 1px solid #999;
+}
+table thead th {
+  background-color: #ddd;
+}
+table tbody th {
+  background-color: #eee;
+}
+table thead th + th,
+table tbody td {
+  border-left: 1px solid #999;
+}
+table tbody tr:last-child th,
+table tbody tr:last-child td {
+  border-bottom: none;
+}
+table thead tr:first-child th:first-child {
+  border-radius: 10px 0 0 0;
+}
+table thead tr:first-child th:last-child {
+  border-radius: 0 10px 0 0;
+}
+table tbody tr:last-child th:first-child {
+  border-radius: 0 0 0 10px;
+}
+table tbody tr:last-child th:last-child {
+  border-radius: 0 0 10px 0;
+}
+tr:nth-child(even){
+  background-color:#EEF;
+}
+.under {
+  -moz-border-radius: 0px 0px 8px 8px; /* for Firefox */
+  -webkit-border-radius: 0px 0px 8px 8px; /* for Chrome */
+  border-radius: 0px 0px 8px 8px;
+}
+.over {
+  -moz-border-radius: 8px 8px 0px 0px; /* for Firefox */
+  -webkit-border-radius: 8px 8px 0px 0px; /* for Chrome */
+  border-radius: 8px 8px 0px 0px;
+}
+a:link {
+  color: blue;
+}
+a:visited {
+  color: blue;
+}
+a:hover {
+  color: #99F;
+}
+a:active {
+  color: #99F;
+}
+    </style>
+    <script>
+      let myName;
+      let myId;
+      let isMobile = false;
+      
+      const limitW = 480;
+      const limitH = 240; // ピクセル数の上限
+      const quality = 0.5; // 圧縮時のクオリティ
+      const sizeLimit = 300; // アップロード上限サイズ（KB）
+      const sizeOutOfQuestion = 30000; // あまりにもなファイルサイズ
+      const pixOutOfQuestion = 10000; // あまりにもな画像サイズ
+      let attachs = [];
+      let domDropArea = null;
+      let isIE = false;
+      let odaiData = [];
+      let currentImg = null;
+      let numDropped = 0;
+      let suspendedImg = null;
+      let suspendedOdai = '';
+      let suspendedW = suspendedH = 0;
+      let numProcessed = 0;
+
+      window.onload = function() {
+        if (navigator.userAgent.indexOf('iPhone') != -1 || navigator.userAgent.indexOf('Android') > 0 || navigator.userAgent.indexOf('WP') != -1) {
+          isMobile = true;
+          if(isMobile) document.getElementsByClassName('odai')[0].style.width = '80%';
+        }
+        if(isMobile) {
+          document.getElementById('links').style.display = 'none';
+          document.getElementById('select_link').style.display = 'block';
+        }
+        let anchors = document.getElementsByTagName('a');
+        for(let i in anchors){
+          anchors[i].href += '?d=' + Date.now();
+        }
+        let options = document.getElementById('select_link').options;
+        if(isMobile) {
+          for(let i in options){
+            if(options[i].value) {
+              // alert(location.pathname + '\n' + options[i].value);
+              if(location.pathname == options[i].value) options[i].selected = true;
+              options[i].value += '?d=' + Date.now();
+            }
+          }
+        }
+
+        document.body.ondragover = document.body.ondragenter = function(event) {
+          this.style.backgroundColor = '#FFFFFF';
+          event.stopPropagation();
+          event.preventDefault();
+        }
+
+        document.body.ondragleave = document.body.ondragend = document.body.ondrop = function(event) {
+          this.style.backgroundColor = '#FFFFE0';
+          event.stopPropagation();
+          event.preventDefault();
+          let filesArray = event.dataTransfer.files;
+          let sentence = (filesArray.length > 1) ? '写真でひと言':undefined;
+          let oinput = document.getElementById('oinput');
+          if(oinput.value.replace(/\s+/g, '') && filesArray.length > 1) {
+            sentence = oinput.value;
+          }
+          numDropped = filesArray.length; // 一度にいくつドロップしたか
+          numProcessed = 0;
+
+          for (let i = 0; i < filesArray.length; i++) {
+            let f = filesArray[i];
+            let objFileReader = new FileReader();
+
+            objFileReader.onload = (handleFile)(f, objFileReader, sentence);
+            objFileReader.readAsDataURL(f);
+          }
+        }
+
+        getUser();
+        document.getElementsByClassName('odai')[0].focus();
+      }
+
+      function addFile(filesArray) {
+        let sentence = (filesArray.length > 1) ? '写真でひと言':undefined;
+        let oinput = document.getElementById('oinput');
+        if(oinput.value.replace(/\s+/g, '') && filesArray.length > 1) {
+          sentence = oinput.value;
+        }
+        numDropped = filesArray.length; // 一度にいくつドロップしたか
+        numProcessed = 0;
+
+        for (let i = 0; i < filesArray.length; i++) {
+          let f = filesArray[i];
+          let objFileReader = new FileReader();
+
+          objFileReader.onload = (handleFile)(f, objFileReader, sentence);
+          objFileReader.readAsDataURL(f);
+        }
+      }
+
+      function handleFile(f, objFileReader, sentence) {
+        return function(e) {
+          let w = h = drawW = drawH = 0;
+          let img = null;
+          let resizeFlg = false;
+
+          if(f.size > sizeOutOfQuestion * 1024) {
+            alert('ファイルサイズが大きすぎます');
+            return;
+          }
+
+          // if(f.size > sizeLimit * 1024) {
+          //   alert('申し訳ありません、' + sizeLimit + 'KB までにしてください');
+          //   return;
+          // }
+
+          // サイズ上限オーバー、またはフォーマットが BMP ならば強制的に JPEG に
+          let forceJpeg = f.size > sizeLimit * 1024 || f.type == 'image/bmp';
+
+          // 面倒だから全部JPEG
+          // forceJpeg = true;
+
+          // 画像とか動画なら幅と高さを
+          if(f.type.match('image/*')) {
+            if(f.type.match('image/gif') && f.size > sizeLimit * 1024) {
+              alert('GIF画像の上限サイズは' + sizeLimit + 'KBです。\n申し訳ありません。');
+              return;
+            }
+            img = document.createElement("img");
+            img.src = objFileReader.result;
+            img.onerror = function() {
+              alert('エラーみたいです');
+            };
+            img.onload = function() {
+              if(img.className == 'enough') return;
+              w = drawW = this.naturalWidth;
+              h = drawH = this.naturalHeight;
+
+              if(w > pixOutOfQuestion || h > pixOutOfQuestion) {
+                alert('画像サイズが大きすぎます');
+                return;
+              }
+
+              // 縦横の上限に収まるようリサイズ
+              // if(true){
+              if(w > limitW || h > limitH){
+                resizeFlg = true;
+                if(w/limitW > h/limitH) {
+                  drawW = limitW;
+                  drawH = h * (limitW/w);
+                }else{
+                  drawH = limitH;
+                  drawW = w * (limitH/h);
+                }
+              }else if(forceJpeg) {
+                resizeFlg = true;
+              }
+
+              if(f.type == 'image/gif') resizeFlg = false; // GIF はりサイズしない
+
+              let dataUri = e.target.result;
+              let orientation = getOrientation(dataUri);
+
+              let anchor = document.createElement('a');
+              anchor.href = e.target.result;
+              //anchor.href = objFileReader.result;
+              anchor.download = f.name;
+              anchor.style.whiteSpace = 'nowrap';
+              anchor.title = f.name;
+              anchor.style.display = 'none';
+
+              let attachContainer = document.createElement('div');
+              attachContainer.style.textAlign = 'right';
+              if(numDropped == 1) {
+                attachContainer.style.width = '125px';
+              }
+              attachContainer.style.borderRadius = '8px';
+              attachContainer.style.border = '2px solid #666';
+              attachContainer.style.display = 'inline-block';
+              attachContainer.style.margin = '5px 5px 0px 5px';
+              attachContainer.style.overflow = 'hidden';
+
+              // attachContainer.appendChild(anchor);
+
+              let divImg = document.createElement('div');
+              if(numDropped == 1) {
+                divImg.style.backgroundImage = 'url(' + img.src + ')';
+                divImg.style.backgroundSize = 'cover';
+                // divImg.id = img.src;
+                divImg.style.width = '120px';
+                divImg.style.height = '120px';
+                divImg.className = 'attach';
+                // divImg.style.marginTop = '15px';
+                divImg.textAlign = 'right';
+              }
+              // divImg.style.position = 'relative';
+              /*
+              if(!isMobile && !isIE) {
+                divImg.addEventListener('click', function() {
+                  // window.open(anchor.href);
+                  try{
+                    anchor.click();
+                  }catch(e){
+                    // alert('そのブラウザ、あまりよくないです。\n' + e);
+                    window.open(anchor.href);
+                  }
+                });
+              }
+              */
+
+              let canvas = document.createElement('canvas');
+              if (!canvas || !canvas.getContext) { return false; }
+              canvas.width = drawW;
+              canvas.height = drawH;
+              canvas.className = 'hiddenCanvas';
+              let ctx = canvas.getContext('2d');
+              if(orientation == 6) {
+                // rotateImage(img, divImg, anchor, canvas, f.type, Math.PI/2, drawW, drawH, quality);
+                let tmpW = drawW;
+                let tmpH = drawH;
+                drawW = tmpH;
+                drawH = tmpW;
+
+                if(drawW > limitW || drawH > limitH) {
+                  if(drawW/limitW > drawH/limitH) {
+                    let rate = limitW/drawW;
+                    drawW = limitW;
+                    drawH = drawH * rate;
+                  }else{
+                    let rate = limitH/drawH;
+                    drawH = limitH;
+                    drawW = drawW * rate;
+                  }
+                }
+                tmpW = drawW;
+                tmpH = drawH;
+                drawW = tmpH;
+                drawH = tmpW;
+
+                canvas.width = drawH;
+                canvas.height = drawW;
+                ctx.rotate(Math.PI/2);
+                ctx.translate(0, -drawH);
+                ctx.drawImage(img, 0, 0, drawW, drawH);
+                let newData = canvas.toDataURL(f.type, quality);
+                if(numDropped == 1) divImg.style.backgroundImage = 'url(' + newData + ')';
+                img.className = 'enough';
+                img.src = anchor.href = newData;
+
+                tmpW = drawW;
+                tmpH = drawH;
+                drawW = tmpH;
+                drawH = tmpW;
+              }else if(orientation == 3) {
+                // rotateImage(img, divImg, anchor, canvas, f.type, Math.PI/2*2, drawW, drawH, quality);
+                ctx.rotate(Math.PI/2 * 2);
+                ctx.translate(-drawW, -drawH);
+                ctx.drawImage(img, 0, 0, drawW, drawH);
+                let newData = canvas.toDataURL(f.type, quality);
+                if(numDropped == 1) divImg.style.backgroundImage = 'url(' + newData + ')';
+                img.className = 'enough';
+                img.src = anchor.href = newData;
+              }else if(orientation == 8) {
+                // rotateImage(img, divImg, anchor, canvas, f.type, Math.PI/2*3, drawW, drawH, quality);
+                let tmpW = drawW;
+                let tmpH = drawH;
+                drawW = tmpH;
+                drawH = tmpW;
+
+                if(drawW > limitW || drawH > limitH) {
+                  if(drawW/limitW > drawH/limitH) {
+                    let rate = limitW/drawW;
+                    drawW = limitW;
+                    drawH = drawH * rate;
+                  }else{
+                    let rate = limitH/drawH;
+                    drawH = limitH;
+                    drawW = drawW * rate;
+                  }
+                }
+                tmpW = drawW;
+                tmpH = drawH;
+                drawW = tmpH;
+                drawH = tmpW;
+
+                canvas.width = drawH;
+                canvas.height = drawW;
+                ctx.rotate(Math.PI/2);
+                ctx.translate(0, -drawH);
+                ctx.drawImage(img, 0, 0, drawW, drawH);
+                let newData = canvas.toDataURL(f.type, quality);
+                if(numDropped == 1) divImg.style.backgroundImage = 'url(' + newData + ')';
+                img.className = 'enough';
+                img.src = anchor.href = newData;
+
+                tmpW = drawW;
+                tmpH = drawH;
+                drawW = tmpH;
+                drawH = tmpW;
+              }else{
+                ctx.drawImage(img, 0, 0, w, h, 0, 0, drawW, drawH);
+              }
+
+              if(numDropped == 1) attachContainer.appendChild(divImg);
+              // if(!isMobile && !isIE) attachContainer.style.cursor = 'pointer';
+
+              let delBtn = document.createElement('img');
+              delBtn.style.cursor = 'pointer';
+              delBtn.width = '32';
+              delBtn.height = '32';
+              delBtn.style.position = 'relative';
+              delBtn.style.top = '-120px';
+              delBtn.style.right = '0px';
+              delBtn.style.marginTop = '5px';
+              delBtn.style.marginRight = '5px';
+              delBtn.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYEAIAAAA/hXbsAAAABGdBTUEAALGPC/xhBQAAACBjSFJNAAB6JgAAgIQAAPoAAACA6AAAdTAAAOpgAAA6mAAAF3CculE8AAAABmJLR0T///////8JWPfcAAAAB3RJTUUH4gYFFjEoxIVlMQAABG1JREFUSMfNl21sU1UYx0vbrWrwdpNKbAYrSSldu60M5lscxkhili4YICRGYMxpMNENhuLG2EtGjMRpsJkocR8MwwX4BiIjKh9gCx1fZnvbdWyhpbe393a30G2xsNnbcje8s/c51ba2lVYxcD/805zznP/z6z3nPOdckfcbUfQhI4J6GNCdoGrQ4hRV5aipDuqELJCRZAVFJDEUckbQyVIloSR8nyiOKo7SLvmL8pdoHJvAnLQNIzAy+nscm6At2Ag2Qv+CDWPD91EUiUb96SC4gTPKgjKi7IhE5PEDSrmSVtKLD+lB2RGJyFMnqK9NsVGx8WEBoeyIRORZLSjtlK+Xr08M4tfMvT0rCniMDdVVfrzCbLjGXbJbcGuuybgh+xTO+EcrbhimAi7j1upifvWc8c6txBiUHZHEFlp01s3YlcSgmYa652tXOmFhugZg0R0UlOvAxy1DWaF04WGLw9sWd3CuEnRmd51sZzAJCLIjksxAJ+ufq1vu2iP0EhcFdcOio2SSs+LtXL9t0RrMiHLSrsJF1OMSs/hddzju4NoLQMfr83b5MgOp/gIyJ03ZEfbT0Apmh2ZaPeluhsgWsF4JWE9JnxAPcD6HzPZbEorfobXLqKelKvEQikSjkAPzpsaitvOfs00hWQqQGZHEgYaTgWJYvSwfamfGdYTW7f4O4vcDFvwb6ohsML91wUsFyasLFC0nndQXson8w6gXRaJRzJjuknaEP8YGQk2pWVD2VKDhTFPAXwiH2X0MrTeWvO4+DaM6AOsKjK3F1Esno7p26TRqQb0okqH0+pIN/EDYy76TyR9lzwEohrXIbYvg/mbDmbJzRBeUsvdAP0tQaEG9/g8NPWXH+XtcVeQ+m+BfAiU+jFfXpf2YNMDu+z6uZAW8FUL3lnZf9m7/CWjhtLfcU0zzhcECE7kZUI7FldwCbr8XXi84tHDKK/c8+T8CcY5Rk20P1Zg/lneA+ArSvwwO83FFLcTXsOQb8i/nvc/ZRpts2x8wENdvL7T+Si2TysUXiRUwCrYx8YqgN5+pDKybvqmsvLcujFpivRBJFUrmxWe5Ptus9UZuQOZ0257bj5ssjZRU8qW4MlZX0Gbuh2VbXV5f2pwY768pP1TajXpjBQLVrSWSDvEa7gN8r2VHWqA0dehvQPPGccVYkXcXpKch8qOEuuLRF5Vo+Ft3uyJLknZi4G5vpCC61atKXnCfSBgFDt5aQedfu3bHwWUGynB0TOVtGqgxu9bCv2wFUziNGauuV3sqWlcYtjFjgfgxzLFtjF33s/Ynd33cAblNiTYdrjFlc5YlvaHbWzrn2s84z4ERxDCbNUXqVXw32x16LJu9E43sCy1ntmo2qJ91wbHqhNJwu6bzantnmjdU/I/XD/TM9vW8YSoL/tA602Llz4cvs7tzvX5Eq/wYeyB44aC0xTf7bc+rpmVp1lDS9eORu6A9alfYtJd8k8JEX5fr5fro7A5ig1ld6bNTwQ2cUZY0l/ysPoNUD0iz+Az6A3SVa6BrXOdMAAAAJXRFWHRkYXRlOmNyZWF0ZQAyMDE4LTA2LTA1VDIyOjQ5OjQwKzA5OjAwEAPHFAAAACV0RVh0ZGF0ZTptb2RpZnkAMjAxOC0wNi0wNVQyMjo0OTo0MCswOTowMGFef6gAAAAASUVORK5CYII=';
+              delBtn.addEventListener('click', function() {
+                suspendedImg = null;
+                let newAttachs = [];
+                for(let i in attachs) {
+                  if(attachs[i].data != anchor.href) {
+                    newAttachs.push(attachs[i]);
+                  }else{
+                    let pn = this.parentNode; // attachContainer
+                    
+                    // while (pn.firstChild) pn.removeChild(pn.firstChild); // 子要素を全て削除
+                    pn.parentNode.removeChild(pn); // 自身を削除
+                  }
+                }
+                attachs = newAttachs;
+                currentImg = null;
+                document.getElementById('files').value = '';
+              });
+
+              let resizedData = null;
+              try {
+                resizedData = canvas.toDataURL(f.type, quality); // JPEG 以外のときも第2引数あっていい？
+              }catch(e){
+                // alert(e.message);
+                console.log(e.message);
+                return; // そっと無視
+              }
+              if(forceJpeg) {
+                for(let i in attachs) {
+                  if(attachs[i].data != anchor.href) {
+                  }
+                }
+                // 強制的にフォーマット変換
+                resizedData = canvas.toDataURL('image/jpeg', quality);
+                img.src = anchor.href = resizedData;
+                img.className = 'enough';
+                anchor.download = f.name.substring(0, f.name.lastIndexOf('.')) + '_convert.jpg';
+              }
+
+//              if(resizedData.length < e.target.result.length && resizeFlg) {
+              if(resizeFlg) {
+                img.src = anchor.href = resizedData; // リサイズしたものを再設定
+                img.className = 'enough';
+                attachObj = {name:f.name, data:resizedData};
+              }else{
+                attachObj = {name:f.name, data:e.target.result};
+              }
+              // for(let key in attachs) {
+              //   if(attachs[key].data == attachObj.data) {
+              //     // 同じデータ
+              //     if(attachs[key].name == attachObj.name) {
+              //       // 名前だけ変えてる
+              //     }
+              //     return;
+              //   }
+              // }
+
+              if(numDropped == 1) {
+                divImg.style.width = drawW + 'px';
+                divImg.style.height = drawH + 'px';
+                attachContainer.style.width = drawW + 'px';
+                attachContainer.style.height = drawH + 'px';
+                delBtn.style.top = '-' + attachContainer.style.height;
+                if(numDropped == 1) attachContainer.appendChild(delBtn);
+              }
+
+              attachs.push(attachObj);
+
+              if(sentence) {
+                addImg(img, attachContainer, sentence, drawW, drawH);
+              }else{
+                addImg(img, attachContainer);
+              }
+
+              if(numDropped == 1) {
+                suspendedImg = resizedData;
+                suspendedOdai = document.getElementById('oinput').value;
+                suspendedW = drawW;
+                suspendedH = drawH;
+              }
+
+              document.getElementById('files').value = '';
+            }
+          }else{
+            alert('画像以外は添付できません\n' + f.type);
+            return;
+          }
+        };
+      }
+
+      // 写真の傾きを取得する
+      // Orientation = 3 180°回転
+      // Orientation = 4 上下反転
+      // Orientation = 5 時計回りに90°回転した後、左右反転
+      // Orientation = 6 時計回りに90°回転
+      // Orientation = 7 反時計回りに90°回転した後、左右反転
+      // Orientation = 8 反時計回りに90°回転
+      function getOrientation(imgDataURL){
+        let byteString = atob(imgDataURL.split(',')[1]);
+        let orientaion = byteStringToOrientation(byteString);
+        return orientaion;
+
+        function byteStringToOrientation(img){
+          let head = 0;
+          let orientation;
+          while (1){
+            if (img.charCodeAt(head) == 255 & img.charCodeAt(head + 1) == 218) {break;}
+            if (img.charCodeAt(head) == 255 & img.charCodeAt(head + 1) == 216) {
+              head += 2;
+            }
+            else {
+              let length = img.charCodeAt(head + 2) * 256 + img.charCodeAt(head + 3);
+              let endPoint = head + length + 2;
+              if (img.charCodeAt(head) == 255 & img.charCodeAt(head + 1) == 225) {
+                let segment = img.slice(head, endPoint);
+                let bigEndian = segment.charCodeAt(10) == 77;
+                let count;
+                if (bigEndian) {
+                  count = segment.charCodeAt(18) * 256 + segment.charCodeAt(19);
+                } else {
+                  count = segment.charCodeAt(18) + segment.charCodeAt(19) * 256;
+                }
+                for (i=0; i < count; i++){
+                  let field = segment.slice(20 + 12 * i, 32 + 12 * i);
+                  if ((bigEndian && field.charCodeAt(1) == 18) || (!bigEndian && field.charCodeAt(0) == 18)) {
+                    orientation = bigEndian ? field.charCodeAt(9) : field.charCodeAt(8);
+                  }
+                }
+                break;
+              }
+              head = endPoint;
+            }
+            if (head > img.length){break;}
+          }
+          return orientation;
+        }
+      }
+
+      function getUser() {
+        var url = './getuser?d=' + Date.now();
+
+        req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+
+        req.onreadystatechange = function(){
+          if(req.readyState == 4 && req.status == 200) {
+            let user = JSON.parse(req.response);
+            myName = user.name;
+            document.getElementById('welcome').innerText = myName + 'さん、お題を投稿してください';
+            if(isMobile) document.getElementById('welcome').style.fontSize = '14px';
+            myId = user._id;
+            getUserOdais();
+          }
+        };
+        req.open("GET", url, true);
+        req.setRequestHeader("Content-Type" , "application/json");
+        req.send();
+      }
+      
+      function getUserOdais() {
+        var url = './getuserodais?d=' + Date.now() + '&userId=' + myId;
+
+        req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+
+        req.onreadystatechange = function(){
+          if(req.readyState == 4 && req.status == 200) {
+            let odais = JSON.parse(req.response);
+            let historyContainer = document.getElementById('historyContainer');
+            if(odais.length) historyContainer.style.display = 'block';
+            let p = document.createElement('p');
+            p.innerText = '投稿したお題';
+            p.style.fontSize = '14px';
+            p.style.fontWeight = 'bold';
+            p.style.position = 'relative';
+            p.style.top = '10px';
+            historyContainer.appendChild(p);
+            let table = document.createElement('table');
+            table.style.marginBottom = '10px';
+//            let colors = ['#FEE', '#EEF'];
+            for(let key in odais) {
+              let tr = document.createElement('tr');
+              tr.id = 'tr_' + odais[key]._id;
+//              tr.style.backgroundColor = colors[key%2];
+              let tdSentence = document.createElement('td');
+              tdSentence.style.verticalAlign = 'top';
+              tdSentence.style.padding = '0px';
+              tdSentence.style.width = '320px';
+              tdSentence.style.padding = '10px 5px';
+              let divSentence = document.createElement('div');
+              divSentence.id = 'sentence' + odais[key]._id;
+              divSentence.style.padding = '0px';
+              divSentence.style.fontSize = '14px';
+              divSentence.style.fontWeight = 'bold';
+              divSentence.style.verticalAlign = 'top';
+              divSentence.innerText = odais[key].sentence;
+              tdSentence.appendChild(divSentence);
+              if(odais[key].img) {
+                let img = document.createElement('img');
+                img.src = odais[key].img;
+                img.style.display = 'block';
+                img.style.borderRadius = '5px';
+                img.style.border = '1px solid #666';
+                img.onload = function() {
+                  img.width = img.width/2;
+                  img.height = img.height/2;
+                  tdSentence.appendChild(img);
+                }
+              }
+              
+              let tdEdit = document.createElement('td');
+              tdEdit.style.verticalAlign = 'top';
+              tdEdit.style.textAlign = 'center';
+              tdEdit.style.padding = '20px 5px';
+              tdEdit.style.width = '40px';
+              if(!odais[key].date_release) {
+                let btnEdit = document.createElement('input');
+                btnEdit.type = 'button';
+                // btnEdit.style.fontWeight = 'bold';
+                btnEdit.style.color = '#063';
+                btnEdit.value = '編集';
+                btnEdit.className = 'over';
+                btnEdit.addEventListener('click', editOdai(odais[key]._id));
+                let btnDel = document.createElement('input');
+                btnDel.type = 'button';
+                btnDel.style.color = '#930';
+                btnDel.value = '削除';
+                btnDel.className = 'under';
+                btnDel.addEventListener('click', confDel(odais[key]._id, odais[key].sentence));
+                tdEdit.appendChild(btnEdit);
+                tdEdit.appendChild(btnDel);
+              }else{
+                let btnAnswer = document.createElement('input');
+                btnAnswer.type = 'button';
+                btnAnswer.style.color = '#960';
+                btnAnswer.value = '回答';
+                btnAnswer.style.borderRadius = '8px';
+                btnAnswer.addEventListener('click', function(){
+                  location.href = '/answer?targetOdai=' + odais[key]._id + '&d=' + Date.now();
+                });
+                tdEdit.appendChild(btnAnswer);
+              }
+
+              let tdSpan = document.createElement('td');
+              tdSpan.style.padding = '20px 5px';
+              tdSpan.style.verticalAlign = 'top';
+              tdSpan.style.fontSize = '11px';
+              tdSpan.style.width = '180px';
+
+              let spanPost = document.createElement('span');
+              let postDate = new Date(odais[key].date);
+              let datestr_post = postDate.getFullYear() + '/' + formatFigure(postDate.getMonth() + 1) + '/' + formatFigure(postDate.getDate()) + ' ' + formatFigure(postDate.getHours()) + '時' + formatFigure(postDate.getMinutes()) + '分';
+              spanPost.innerText = '投稿：' + datestr_post + '\n';
+              tdSpan.appendChild(spanPost);
+
+              if(odais[key].date_release) {
+                let spanStart = document.createElement('span');
+                let spanEnd = document.createElement('span');
+                let releaseDate = new Date(odais[key].date_release);
+                let datestr_release = releaseDate.getFullYear() + '/' + formatFigure(releaseDate.getMonth() + 1) + '/' + formatFigure(releaseDate.getDate()) + ' ' + formatFigure(releaseDate.getHours()) + '時' + formatFigure(releaseDate.getMinutes()) + '分';
+                spanStart.innerText = '公開：' + datestr_release + '\n';
+                if(odais[key].date_close) {
+                  let closeDate = new Date(odais[key].date_close);
+                  let datestr_close = closeDate.getFullYear() + '/' + formatFigure(closeDate.getMonth() + 1) + '/' + formatFigure(closeDate.getDate()) + ' ' + formatFigure(closeDate.getHours()) + '時' + formatFigure(closeDate.getMinutes()) + '分';
+                  spanEnd.innerText += '終了：' + datestr_close + '\n';
+                }else{
+                  spanEnd.style.fontWeight = 'bold';
+                  spanEnd.innerText += '募集中';
+                }
+                tdSpan.appendChild(spanStart);
+                tdSpan.appendChild(spanEnd);
+              }
+
+              if(key != odais.length - 1) {
+                tdSentence.style.borderBottom = '1px dotted #999';
+                tdEdit.style.borderBottom = '1px dotted #999';
+                tdSpan.style.borderBottom = '1px dotted #999';
+              }else{
+                tdSentence.style.borderRadius = '0px 0px 0px 8px';
+                tdSpan.style.borderRadius = '0px 0px 8px 0px';
+              }
+
+              tr.appendChild(tdSentence);
+              tr.appendChild(tdEdit);
+              tr.appendChild(tdSpan);
+              table.appendChild(tr);
+            }
+            historyContainer.appendChild(table);
+          }
+        };
+        req.open("GET", url, true);
+        req.setRequestHeader("Content-Type" , "application/json");
+        req.send();
+      }
+
+      function doSend() {
+        var url = './sendodai';
+        let sendBtn = document.getElementById('sendBtn');
+        sendBtn.disabled = true;
+
+        let req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+
+        req.onreadystatechange = function(){
+          if(req.readyState == 4 && req.status == 200) {
+            sendBtn.disabled = false;
+            location.reload(true);
+          }else if(req.readyState == 4 && req.status != 200) {
+            sendBtn.disabled = false;
+            alert(req.response);
+          }
+        };
+
+        let empError = false;
+        let errPos = null;
+        odaiData = [];
+        odaidivs = document.getElementsByClassName('odaidiv');
+        for(let i in odaidivs) {
+          if(odaidivs[i].id && odaidivs[i].id.indexOf('odai') != -1) {
+            // alert(odaidivs[i].id.replace('odai', 'sentence'));
+            let obj = {};
+            let tbox = document.getElementById(odaidivs[i].id.replace('odai', 'sentence'));
+            tbox.style.backgroundColor = '#FFF';
+            obj.sentence = tbox.value;
+            if(!obj.sentence.replace(/\s+/g, '')) {
+              empError = true;
+              if(!errPos) errPos = tbox;
+              tbox.style.backgroundColor = '#FBB';
+            }
+            if(document.getElementById(odaidivs[i].id.replace('odai', 'img'))){
+              obj.img = document.getElementById(odaidivs[i].id.replace('odai', 'img')).src;
+            }
+            odaiData.push(obj);
+          }
+        }
+        if(empError) {
+          alert('お題本文は必須です');
+          errPos.focus();
+          sendBtn.disabled = false;
+          return;
+        }
+
+        let latestData = {};
+        let oinput = document.getElementById('oinput');
+        if(oinput.value.replace(/\s+/g, '')) {
+          latestData.sentence = oinput.value;
+          if(currentImg) {
+            latestData.img = currentImg;
+          }
+          odaiData.push(latestData);
+        }
+
+        if(odaiData.length == 0) {
+          alert('お題を書いてください');
+          sendBtn.disabled = false;
+          return;
+        }
+
+        req.open("POST", url, true);
+        let data = {odais: odaiData, mode: 'make', user_id: myId};
+        req.setRequestHeader("Content-Type" , "text/plain");
+        // console.log(JSON.stringify(data));
+        req.send(JSON.stringify(data));
+      }
+
+      function addImg(img, attachContainer, sentence, w, h) {
+        if(numDropped == 1) {
+          let divImg = document.getElementById('attachPhoto');
+          while (divImg.firstChild) divImg.removeChild(divImg.firstChild);
+          if(attachContainer) {
+            divImg.appendChild(attachContainer);
+            divImg.style.display = 'block';
+          }
+        }
+
+        currentImg = img.src;
+        if(sentence) {
+          document.getElementById('oinput').value = sentence;
+          if(suspendedImg) {
+            addOdai(suspendedImg, w, h);
+          }else{
+            addOdai(img.src, w, h);
+          }
+        }
+      }
+
+      function addOdai(im, w, h) {
+        let odaiContainer = document.getElementById('odais');
+        let odais = document.getElementsByClassName('odai');
+        let num = odais.length;
+        let oinput = document.getElementById('oinput');
+
+        if(!oinput.value.replace(/\s+/g, '')) {
+          alert('お題本文は必須です');
+          oinput.focus();
+          return;
+        }
+
+        let currentOdai = oinput.value;
+        
+        let elemId = 0;
+        for(var i = 0; i <= num; i++) {
+          if(!document.getElementById('odai' + i)) {
+            elemId = i;
+            break;
+          }
+        }
+
+        if(im) {
+          odaiData.push({serial: elemId, sentence: currentOdai, img: im});
+        }else{
+          odaiData.push({serial: elemId, sentence: currentOdai, img: currentImg});
+        }
+
+        let odai = document.createElement('div');
+        // odai.innerText = currentOdai;
+        
+        odai.style.width = '460px';
+        if(isMobile) odai.style.width = '90%';
+        odai.style.height = '70px';
+        odai.style.overflow = 'auto';
+        odai.style.color = '#666';
+        odai.style.borderRadius = '5px';
+        odai.style.border = '2px dotted #BBB';
+        odai.style.backgroundColor = '#EEE';
+        odai.style.marginTop = '5px';
+        odai.style.fontSize = '13px';
+        odai.style.padding = '5px';
+        odai.style.display = 'inline-block';
+        odai.className = 'odai';
+        let removeBtn = document.createElement('input');
+        removeBtn.type = 'button';
+        removeBtn.style.position = 'relative';
+        removeBtn.style.width = '50px';
+        removeBtn.style.left = '-55px';
+        if(isMobile) removeBtn.style.left = '0px';
+        removeBtn.style.bottom = '8px';
+        if(isMobile) removeBtn.style.bottom = '20px';
+        removeBtn.value = '削除';
+        removeBtn.addEventListener('click', function() {
+          let target = document.getElementById('odai' + elemId);
+          target.parentNode.removeChild(target);
+          let newData = [];
+          for(let i in odaiData) {
+            if(odaiData[i].serial != elemId) {
+              newData.push(odaiData[i]);
+            }
+          }
+          odaiData = newData;
+        });
+        let p = document.createElement('div');
+        p.id = 'odai' + elemId;
+        p.className = 'odaidiv';
+        p.style.margin = '0px';
+        p.appendChild(odai);
+
+        let tSentence = document.createElement('textarea');
+        tSentence.rows = 2;
+        tSentence.style.borderRadius = '5px';
+        tSentence.style.width = '420px';
+        tSentence.style.height= '55px';
+        tSentence.style.fontSize = '15px';
+        tSentence.style.resize = 'none';
+        tSentence.value = currentOdai;
+        tSentence.id = 'sentence' + elemId;
+        tSentence.oninput = function() {
+          checkLine(this);
+        }
+        odai.appendChild(tSentence);
+
+        if(currentImg) {
+          let imPhoto = document.createElement('img');
+          imPhoto.src = currentImg;
+          imPhoto.id = 'img' + elemId;
+          imPhoto.style.display = 'block';
+          imPhoto.style.border = '1px solid #666';
+          imPhoto.style.borderRadius = '5px';
+          imPhoto.onload = function() {
+            if(w && h) {
+              imPhoto.style.width = w/3 + 'px';
+              imPhoto.style.height = h/3 + 'px';
+            }else if(suspendedW && suspendedH) {
+              imPhoto.style.width = suspendedW/3 + 'px';
+              imPhoto.style.height = suspendedH/3 + 'px';
+            }else{
+              imPhoto.style.width = drawW/3 + 'px';
+              imPhoto.style.height = drawH/3 + 'px';
+            }
+          }
+          odai.appendChild(imPhoto);
+          odai.style.height = '150px';
+        }
+        p.appendChild(removeBtn);
+        odaiContainer.appendChild(p);
+        oinput.value = '';
+
+// console.log(numDropped);
+// if(suspendedImg) console.log(suspendedImg.length);
+
+        numProcessed++;
+        if(numProcessed > numDropped) {
+          numDropped = 1;
+          document.getElementById('oinput').value = '';
+        }
+
+        if(numDropped == 1 && suspendedImg) {
+          // 消す
+          let divImg = document.getElementById('attachPhoto');
+          while (divImg.firstChild) divImg.removeChild(divImg.firstChild);
+          divImg.style.display = 'none';
+          currentImg = suspendedImg = null;
+        }else{
+          // console.log('消さない');
+          let attach = document.getElementsByClassName('attach');
+          if(attach && attach[0]) {
+            attach[0].style.width = suspendedW + 'px';
+            attach[0].style.height = suspendedH + 'px';
+            attach[0].style.backgroundImage = 'url(' + suspendedImg + ')';
+            currentImg = suspendedImg;
+            document.getElementById('oinput').value = suspendedOdai;
+          }
+        }
+        oinput.focus();
+      }
+
+      let editWin = null;
+
+      function editOdai(odaiId) {
+        return function() {
+          editWin = window.open('./edit_odai.html?odaiId=' + odaiId + '&d=' + Date.now(), '_blank', 'width=480,height=150');
+        };
+      }
+
+      function confDel(odaiId, sentence) {
+        return function() {
+          var url = './getodai?odaiId=' + odaiId +'&d=' + Date.now();
+          let req = prepareXMLHttpRequest();
+          if (req == null) {
+            alert('XMLHttpRequest is not supported');
+            return;
+          }
+          req.onreadystatechange = function(){
+            if(req.readyState == 4) {
+              if(req.status == 200) {
+                let odai = JSON.parse(req.response);
+                if(!odai.date_release) {
+                  delOdai(odaiId, sentence)();
+                }else{
+                  alert('この回答は削除できません。\n削除できるのは公開前の回答だけです。');
+                }
+              }else{
+                alert(req.response);
+              }
+            }
+          };
+          req.open("GET", url, true);
+          req.setRequestHeader("Content-Type" , "text/plain");
+          req.send();
+        };
+      }
+
+      function delOdai(odaiId, sentence) {
+        return function() {
+          if(!confirm('削除しますか？\n\n「' + sentence + '」')) return;
+          var url = './del_odai?d=' + Date.now();
+          let req = prepareXMLHttpRequest();
+          if (req == null) {
+            alert('XMLHttpRequest is not supported');
+            return;
+          }
+          req.onreadystatechange = function(){
+            if(req.readyState == 4) {
+              if(req.status == 200) {
+                let tr = document.getElementById('tr_' + odaiId);
+                tr.parentNode.removeChild(tr);
+              }else{
+                alert(req.response);
+              }
+            }
+          };
+          req.open("POST", url, true);
+          let data = {id: odaiId};
+          req.setRequestHeader("Content-Type" , "text/plain");
+          req.send(JSON.stringify(data));
+        };
+      }
+
+      function prepareXMLHttpRequest() {
+        if (window.XMLHttpRequest) {
+          return new XMLHttpRequest();
+        } else if (window.ActiveXObject) {
+          return new ActiveXObject("Microsoft.XMLHTTP");
+        }
+        return null;
+      }
+      
+      function formatFigure(num) {
+        num += '';
+        if (num.length === 1) {
+          num = '0' + num;
+        }
+        return num;
+      }
+      
+      function movePage(select) {
+        location.href = select.options[select.selectedIndex].value;
+      }
+
+      function checkLine(elem) {
+        // // Ctrl+Z で戻せなくなるので履歴を保存してキー入力を監視するか？
+        // const limit = 2;
+        // const lines = elem.value.split('\n');
+        // const lineNum = lines.length;
+        // if(lineNum > limit) {
+        //   elem.value = '';
+        //   for(let i = 0; i < limit - 1; i++) elem.value += lines[i] + '\n';
+        //   elem.value += lines.slice(limit-1, lines.length).join('');
+        // }
+      }
+
+      window.document.onkeypress = lineCheck;
+      function lineCheck(e){
+        var ta = document.activeElement;
+        if(ta.nodeName.toLowerCase() != 'textarea') return;
+
+        var row = ta.getAttribute('rows');
+        var r = (ta.value.split('\n')).length;
+        if(document.all){
+          if(r >= row && window.event.keyCode == 13) { // IE
+            return false;
+          }
+        } else {
+          if(r >= row && e.which==13) {
+            return false;
+          }
+        }
+      }
+    </script>
+  </head>
+  <body style="background-color:#FFFFE0;height:100%;">
+    <div>
+      <span id="links">
+        <a href="./answer">回答する</a> | <a href="./sendodai">お題投稿</a> | <a href="./editprofile">ユーザ情報変更</a> | <a href="./logout">ログアウト</a>
+      </span>
+      <select id="select_link" style="display:none;" onchange="movePage(this)">
+        <option value="/answer">回答する</option>
+        <option value="/sendodai">お題投稿</option>
+        <option value="/editprofile">ユーザ情報変更</option>
+        <option value="/logout">ログアウト</option>
+      </select>
+    </div>
+    <h1 id="welcome" style="font-size:20px;">&nbsp;</h1>
+    
+    <div id="odais">
+      <p style="font-size:13px;">お題を入力して「<span style="font-weight:bold;">追加</span>」ボタンを押すと追加で別のお題を入力できます。最後に「<span style="font-weight:bold;">送信</span>」ボタンを押してください。</p>
+      <p style="font-size:13px;">本システム導入前（#2～#50）のお題は<a href="javascript:void(0);" onclick="window.open('./archive.html?d=' + Date.now(), '_blank', 'width=480,height=480');return false;" style="text-decoration:none;">こちら</a>を参照してください。</p>
+      <p style="font-size:13px;margin-top:-10px;">※フリー素材を利用する際は「<span style="color:red;font-weight:bold;">商用利用可能</span>」であることを確認してください。</p>
+      <p id="odai0" style="margin:0px;white-space:nowrap;"><textarea id="oinput" rows="2" oninput="checkLine(this)" class="odai" placeholder="お題（2行まで）" style="font-size:16px;width:460px;height:56px;resize:none;"></textarea><button id="add_files" type="button" onclick="document.getElementById('files').click()" style="width:60px;height:24px;font-size:13px;position:relative;top:-8px;">写真</button><input type="file" id="files" accept="image/*" onchange="addFile(this.files)" style="zoom:100%;display:none;" multiple/>
+      <div id="attachPhoto" style="display:none;"></div></p>
+      <input type="button" value="追加" onclick="addOdai()"><br/>
+      <hr/>
+      <input type="button" value="送信" id="sendBtn" onclick="doSend()" style="margin-bottom:20px;"/>&nbsp;←&nbsp;最後に押すと送信します。
+    </div>
+    <div id="historyContainer" style="dispaly:none;"></div>
+  </body>
+</html>

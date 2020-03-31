@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="ja" style="height:100%;">
+  <head>
+    <title>回答表示</title>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta http-equiv="Pragma" content="no-cache"><!-- 古い -->
+    <meta http-equiv="Cache-Control" content="no-store"><!-- 古い -->
+    <meta http-equiv="Expires" content="0"><!-- 古い -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script>
+      let query = new Array;
+      let isPressedCtrl = false; // Ctrl が押されているか
+      let isEditable = false;
+      let rubySize = 17;
+      let imObj = null;
+      let scaleMode = false; // 画像を左側に大きく表示するか
+
+      // scaleMode = getScaleMode();
+      // if(localStorage.getItem('scaleMode')) scaleMode = eval(localStorage.getItem('scaleMode'));
+
+      addKeyEvent();
+
+      if (location.search.length > 1) {
+        let m_Array = location.search.substring(1).split("&"); 
+        for (i in m_Array) {
+          let q_Array=m_Array[i].split("=");
+          let name=q_Array[0];
+          query[name]=q_Array[1];
+        }
+      }
+
+      window.onunload = function() {
+        if(window.opener) {
+          // window.opener.setNull();
+        }
+      }
+
+      window.onload = function() {
+        if(query['odaiId']) {
+          document.getElementById('answer').style.display = 'none';
+          getOdai();
+        }
+
+        // show(query['odai'], undefined, query['answer']);
+        // window.opener.focus();
+      }
+
+      function show(odai, img, answer) {
+        const imHeight = 340;
+        const imWidth = 680;
+        if(img) {
+          rubySize = 11;
+          if (navigator.userAgent.indexOf('iPhone') != -1 || navigator.userAgent.indexOf('iPad') != -1 || navigator.userAgent.indexOf('Android') > 0 || navigator.userAgent.indexOf('WP') != -1) {
+            rubySize = document.body.clientWidth/80;
+          }
+          document.body.style.backgroundRepeat = 'no-repeat';
+          document.getElementById('answer').style.display = 'block';
+          document.getElementById('answer').style.fontSize = '22px';
+          if (navigator.userAgent.indexOf('iPhone') != -1 || navigator.userAgent.indexOf('iPad') != -1 || navigator.userAgent.indexOf('Android') > 0 || navigator.userAgent.indexOf('WP') != -1) {
+            document.getElementById('odai').style.fontSize = document.body.clientWidth/70 + 'px';
+            document.getElementById('answer').style.fontSize = document.body.clientWidth/40 + 'px';
+          }
+          document.body.style.verticalAlign = 'top';
+          imObj = document.createElement('img');
+          imObj.onload = function() {
+            if(scaleMode) {
+              let rate = imObj.width/imObj.height;
+              if(rate > 2) {
+                let w = imWidth + 10;
+                document.getElementById('odai').style.marginLeft = w + 'px';
+                document.getElementById('odai').style.fontSize = '18px';
+                document.getElementById('answer').style.marginLeft = w + 'px';
+                document.getElementById('answer').style.width = 840 - w + 'px';
+                document.body.style.backgroundSize = imWidth + 'px auto';
+              }else{
+                let w = imObj.width * imHeight/imObj.height + 10;
+                document.getElementById('odai').style.marginLeft = w + 'px';
+                document.getElementById('odai').style.fontSize = '18px';
+                document.getElementById('answer').style.marginLeft = w + 'px';
+                document.getElementById('answer').style.width = 840 - w + 'px';
+                document.body.style.backgroundSize = 'auto ' + imHeight + 'px';
+              }
+            }
+            document.body.style.backgroundImage = 'url(' + img + ')';
+          }
+          imObj.src = img;
+          if (navigator.userAgent.indexOf('iPhone') != -1 || navigator.userAgent.indexOf('iPad') != -1 || navigator.userAgent.indexOf('Android') > 0 || navigator.userAgent.indexOf('WP') != -1) {
+            document.getElementById('odai').style.fontSize = document.body.clientWidth/70 + 'px';
+            document.getElementById('answer').style.fontSize = document.body.clientWidth/40 + 'px';
+          }
+
+          if(scaleMode) {
+            document.getElementById('answer').style.textAlign = 'left';
+            document.getElementById('answer').style.marginTop = '36px';
+            document.body.style.backgroundSize = 'auto ' + imHeight + 'px';
+            document.body.style.backgroundPosition = '5px 5px';
+          }else{
+            document.getElementById('odai').style.marginLeft = '8px';
+            document.getElementById('odai').style.fontSize = '20px';
+            document.getElementById('answer').style.marginLeft = '0px';
+            document.getElementById('answer').style.textAlign = 'center';
+            document.getElementById('answer').style.marginTop = '277px';
+            document.body.style.backgroundSize = 'auto 240px';
+            document.body.style.backgroundPosition = 'center 35px';
+          }
+          if (navigator.userAgent.indexOf('iPhone') != -1 || navigator.userAgent.indexOf('iPad') != -1 || navigator.userAgent.indexOf('Android') > 0 || navigator.userAgent.indexOf('WP') != -1) {
+            document.getElementById('odai').style.fontSize = document.body.clientWidth/70 + 'px';
+            document.getElementById('answer').style.fontSize = document.body.clientWidth/40 + 'px';
+          }
+        }else{
+          rubySize = 17;
+          if (navigator.userAgent.indexOf('iPhone') != -1 || navigator.userAgent.indexOf('iPad') != -1 || navigator.userAgent.indexOf('Android') > 0 || navigator.userAgent.indexOf('WP') != -1) {
+            rubySize = document.body.clientWidth/70;
+          }
+          document.getElementById('odai').style.marginLeft = '8px';
+          document.getElementById('odai').style.fontSize = '20px';
+          document.getElementById('answer').style.marginLeft = '0px';
+          if (navigator.userAgent.indexOf('iPhone') != -1 || navigator.userAgent.indexOf('iPad') != -1 || navigator.userAgent.indexOf('Android') > 0 || navigator.userAgent.indexOf('WP') != -1) {
+            document.getElementById('odai').style.fontSize = document.body.clientWidth/40 + 'px';
+            document.getElementById('answer').style.fontSize = document.body.clientWidth/26 + 'px';
+          }else{
+            document.getElementById('answer').style.fontSize = '32px';
+          }
+          document.getElementById('answer').style.textAlign = 'center';
+          document.body.style.verticalAlign = 'middle';
+          document.getElementById('answer').style.display = 'block';
+          document.getElementById('answer').style.marginTop = '0px';
+
+          document.body.style.backgroundImage = '';
+        }
+        let rubyMatch1 = /#(.+?)#\[(.+?)\]/g;
+//        let rubyMatch2 = /\[(.+?),\s*(.+?)\s*\]/g; // 配列のフォーマットと同じなので暴発が心配
+        let rubyMatch2 = /\[(.+?)\/(.+?)\s*\]/g;
+        let rubyMatch3 = /@(.+?)\[(.+?)\]/g;
+        let rubyTag = '<ruby>$1<rt style="font-size:' + rubySize + 'px;margin-bottom:-3px;">$2</rt></ruby>';
+
+        if(!odai) {
+          if(answer != undefined) {
+            answer = decodeURIComponent(answer);
+
+            const ansBox = document.createElement('p');
+            ansBox.style.display = 'inline-block';
+            ansBox.style.margin = '0px';
+            ansBox.style.padding = '0px';
+            if(answer.startsWith('[left]')){
+              answer = answer.substring('[left]'.length);
+              ansBox.style.textAlign = 'left';
+            }else if(answer.startsWith('[right]')) {
+              answer = answer.substring('[right]'.length);
+              ansBox.style.textAlign = 'right';
+            }else{
+              ansBox.style.textAlign = 'center';
+            }
+            while(document.getElementById('answer').firstChild) document.getElementById('answer').removeChild(document.getElementById('answer').firstChild);
+
+            /*
+            if((answer.match(rubyMatch1) || answer.match(rubyMatch2) || answer.match(rubyMatch3)) && answer.indexOf('[plain]') != 0) {
+              answer = answer.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+              answer = answer.replace(rubyMatch1, rubyTag);
+              answer = answer.replace(rubyMatch2, rubyTag);
+              answer = answer.replace(rubyMatch3, rubyTag);
+              document.getElementById('answer').innerHTML = answer.replace(/\n/g, '<br/>');
+            }else{
+              document.getElementById('answer').innerText = answer.replace(/\[plain\]/, '');
+            }
+            */
+
+            if((answer.match(rubyMatch1)) && answer.indexOf('[plain]') != 0) {
+              answer = answer.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+              answer = answer.replace(rubyMatch1, rubyTag);
+              ansBox.innerHTML = answer.replace(/\n/g, '<br/>');
+            }else{
+              ansBox.innerText = answer.replace(/\[plain\]/, '');
+            }
+            document.getElementById('answer').appendChild(ansBox);
+          }else{
+            getAnswer();
+          }
+        }else{
+          document.getElementById('odai').innerText = decodeURIComponent(odai);
+          if(answer != undefined) {
+            answer = decodeURIComponent(answer);
+
+            const ansBox = document.createElement('p');
+            ansBox.style.display = 'inline-block';
+            ansBox.style.margin = '0px';
+            ansBox.style.padding = '0px';
+            if(answer.startsWith('[left]')){
+              answer = answer.substring('[left]'.length);
+              ansBox.style.textAlign = 'left';
+            }else if(answer.startsWith('[right]')) {
+              answer = answer.substring('[right]'.length);
+              ansBox.style.textAlign = 'right';
+            }else{
+              ansBox.style.textAlign = 'center';
+            }
+            while(document.getElementById('answer').firstChild) document.getElementById('answer').removeChild(document.getElementById('answer').firstChild);
+
+            /*
+            if((answer.match(rubyMatch1) || answer.match(rubyMatch2) || answer.match(rubyMatch3)) && answer.indexOf('[plain]') != 0) {
+              answer = answer.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+              answer = answer.replace(rubyMatch1, rubyTag);
+              answer = answer.replace(rubyMatch2, rubyTag);
+              answer = answer.replace(rubyMatch3, rubyTag);
+              document.getElementById('answer').innerHTML = answer.replace(/\n/g, '<br/>');
+            }else{
+              document.getElementById('answer').innerText = answer.replace(/\[plain\]/, '');
+            }
+            */
+
+            if((answer.match(rubyMatch1)) && answer.indexOf('[plain]') != 0) {
+              answer = answer.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+              answer = answer.replace(rubyMatch1, rubyTag);
+              ansBox.innerHTML = answer.replace(/\n/g, '<br/>');
+            }else{
+              ansBox.innerText = answer.replace(/\[plain\]/, '');
+            }
+            document.getElementById('answer').appendChild(ansBox);
+          }
+        }
+      }
+
+      function getAnswer() {
+        let url = './getsingleanswer?ansId=' + query['ansId'] + '&d=' + Date.now();
+
+        req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+
+        req.onreadystatechange = function(){
+          if(req.readyState == 4 && req.status == 200) {
+            let ans = JSON.parse(req.response);
+            document.getElementById('odai').innerText = ans.odai;
+
+            let rubyMatch = /#(.+?)#\[(.+?)\]/g;
+            let rubyTag = '<ruby>$1<rt style="font-size:' + rubySize + 'px;margin-bottom:-3px;">$2</rt></ruby>';
+            let answer = ans.sentence;
+
+            const ansBox = document.createElement('p');
+            ansBox.style.display = 'inline-block';
+            ansBox.style.margin = '0px';
+            ansBox.style.padding = '0px';
+            if(answer.startsWith('[left]')){
+              answer = answer.substring('[left]'.length);
+              ansBox.style.textAlign = 'left';
+            }else if(answer.startsWith('[right]')) {
+              answer = answer.substring('[right]'.length);
+              ansBox.style.textAlign = 'right';
+            }else{
+              ansBox.style.textAlign = 'center';
+            }
+            while(document.getElementById('answer').firstChild) document.getElementById('answer').removeChild(document.getElementById('answer').firstChild);
+
+            if(answer.match(rubyMatch) && answer.indexOf('[plain]') != 0) {
+              answer = answer.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+              answer = answer.replace(rubyMatch, rubyTag);
+              ansBox.innerHTML = answer.replace(/\n/g, '<br/>');
+            }else{
+              ansBox.innerText = answer.replace(/\[plain\]/, '');
+            }
+            document.getElementById('answer').appendChild(ansBox);
+
+            if(ans.user) {
+              let userName = ans.user.name;
+              let location = ans.user.location;
+              let generation = ans.user.generation;
+              let gender = ans.user.gender;
+              let userInfo = "";
+              if(location) userInfo += location + ' ';
+              if(generation) userInfo += generation + ' ';
+              if(gender) userInfo += gender + ' ';
+              userInfo += userName;
+              document.getElementById('user').innerText = userInfo;
+            }
+
+          }
+        };
+        req.open("GET", url, true);
+        req.setRequestHeader("Content-Type" , "application/json");
+        req.send();
+      }
+
+      function getOdai() {
+        let url = './getodai?odaiId=' + query['odaiId'] + '&d=' + Date.now();
+
+        document.getElementById('answer').style.display = 'none';
+
+        req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+
+        req.onreadystatechange = function(){
+          if(req.readyState == 4 && req.status == 200) {
+            let odai = JSON.parse(req.response);
+            document.getElementById('odai').innerText = odai.sentence;
+            if(localStorage.getItem('drawing')) {
+              let im = document.createElement('img');
+              im.src = localStorage.getItem('drawing');
+              im.onload = function() {
+                document.body.style.backgroundImage = 'url(' + localStorage.getItem('drawing') + ')';
+                document.getElementById('answer').style.display = 'block';
+                show(query['odai'], localStorage.getItem('drawing'), query['answer']);
+                localStorage.removeItem('drawing');
+              }
+              rubySize = 12;
+              if (navigator.userAgent.indexOf('iPhone') != -1 || navigator.userAgent.indexOf('iPad') != -1 || navigator.userAgent.indexOf('Android') > 0 || navigator.userAgent.indexOf('WP') != -1) {
+                rubySize = document.body.clientWidth/80;
+              }
+              document.body.style.backgroundRepeat = 'no-repeat';
+              document.body.style.backgroundPosition = 'center 35px';
+
+              document.getElementById('answer').style.fontSize = '22px';
+              if (navigator.userAgent.indexOf('iPhone') != -1 || navigator.userAgent.indexOf('iPad') != -1 || navigator.userAgent.indexOf('Android') > 0 || navigator.userAgent.indexOf('WP') != -1) {
+                document.getElementById('odai').style.fontSize = document.body.clientWidth/70 + 'px';
+                document.getElementById('answer').style.fontSize = document.body.clientWidth/40 + 'px';
+              }
+              document.body.style.verticalAlign = 'top';
+              document.getElementById('answer').style.marginTop = '277px';
+            }else if(odai.img) {
+              let im = document.createElement('img');
+              im.src = odai.img;
+              im.onload = function() {
+                document.body.style.backgroundImage = 'url(' + odai.img + ')';
+                document.getElementById('answer').style.display = 'block';
+                show(query['odai'], odai.img, query['answer']);
+              }
+              rubySize = 12;
+              if (navigator.userAgent.indexOf('iPhone') != -1 || navigator.userAgent.indexOf('iPad') != -1 || navigator.userAgent.indexOf('Android') > 0 || navigator.userAgent.indexOf('WP') != -1) {
+                rubySize = document.body.clientWidth/80;
+              }
+              document.body.style.backgroundRepeat = 'no-repeat';
+              document.body.style.backgroundPosition = 'center 35px';
+
+              document.getElementById('answer').style.fontSize = '22px';
+              if (navigator.userAgent.indexOf('iPhone') != -1 || navigator.userAgent.indexOf('iPad') != -1 || navigator.userAgent.indexOf('Android') > 0 || navigator.userAgent.indexOf('WP') != -1) {
+                document.getElementById('odai').style.fontSize = document.body.clientWidth/70 + 'px';
+                document.getElementById('answer').style.fontSize = document.body.clientWidth/40 + 'px';
+              }
+              document.body.style.verticalAlign = 'top';
+              document.getElementById('answer').style.marginTop = '277px';
+            }else{
+              rubySize = 17;
+              if (navigator.userAgent.indexOf('iPhone') != -1 || navigator.userAgent.indexOf('iPad') != -1 || navigator.userAgent.indexOf('Android') > 0 || navigator.userAgent.indexOf('WP') != -1) {
+                rubySize = document.body.clientWidth/70;
+              }
+              document.body.style.backgroundImage = '';
+
+              document.getElementById('answer').style.fontSize = '32px';
+              if (navigator.userAgent.indexOf('iPhone') != -1 || navigator.userAgent.indexOf('iPad') != -1 || navigator.userAgent.indexOf('Android') > 0 || navigator.userAgent.indexOf('WP') != -1) {
+                document.getElementById('odai').style.fontSize = document.body.clientWidth/40 + 'px';
+                document.getElementById('answer').style.fontSize = document.body.clientWidth/26 + 'px';
+              }
+              document.body.style.verticalAlign = 'middle';
+              document.getElementById('answer').style.marginTop = '0px';
+              show(query['odai'], undefined, query['answer']);
+            }
+            let rts = document.getElementsByTagName('rt');
+            for(let i in rts) {
+              if(rts[i] && rts[i].style) rts[i].style.fontSize = rubySize + 'px';
+            }
+          }else if(req.readyState == 4 && req.status != 200) {
+            alert(req.response);
+          }
+        };
+        req.open("GET", url, true);
+        req.setRequestHeader("Content-Type" , "application/json");
+        req.send();
+      }
+ 
+
+      function getScaleMode() {
+        let url = './getscalemode?d=' + Date.now();
+
+        req = prepareXMLHttpRequest();
+        if (req == null) {
+          return;
+        }
+
+        req.open("GET", url, false);
+        req.setRequestHeader("Content-Type" , "application/json");
+        req.send();
+        return eval(req.response);
+      }
+
+      function updateScaleMode(val) {
+        var url = './updatescalemode';
+
+        let req = prepareXMLHttpRequest();
+        if (req == null) {
+          return;
+        }
+
+        req.onreadystatechange = function(){
+          if(req.readyState == 4 && req.status == 200) {
+            scaleMode = val; //eval(req.response);
+          }
+        };
+
+        if(val == undefined) val = !scaleMode;
+
+        req.open("POST", url, true);
+        let data = {scale_mode: val};
+        req.send(JSON.stringify(data));
+      }
+
+      function prepareXMLHttpRequest() {
+        if (window.XMLHttpRequest) {
+          return new XMLHttpRequest();
+        } else if (window.ActiveXObject) {
+          return new ActiveXObject("Microsoft.XMLHTTP");
+        }
+        return null;
+      }
+
+      function kd(event) {
+        let kcode;
+        if (document.all) {
+          kcode = event.keyCode;
+        } else {
+          kcode = event.which;
+        }
+        
+        if(kcode == 17){
+          isPressedCtrl = true;
+        }else if(kcode == 88 && isPressedCtrl) {
+          let odais = document.getElementById('odais'); // この行いらない？
+          // document.getElementById('answer').innerText = '';
+          if(!isEditable && window.opener && window.opener.document.getElementById('tainput')) {
+            window.opener.document.getElementById('tainput').value = document.getElementById('answer').innerText;
+            window.opener.simplePreview();
+          }else{
+            document.getElementById('answer').innerText = '';
+          }
+          return false;
+        // }else if(kcode == 73 && isPressedCtrl) {
+          // toggleEditable(); // Ctrl+I で編集モード
+          // return false;
+        // }else if(kcode == 67 && isPressedCtrl) {
+          // scaleMode = !scaleMode; // Ctrl+C で表示モード切り替え
+          // // localStorage.setItem('scaleMode', scaleMode);
+          // // changeScale(scaleMode);
+          // return false;
+        }
+      }
+
+      function changeScale(val) {
+//         if(val == undefined) val = !scaleMode;
+
+//         if(val) {
+//           const imHeight = 340;
+//           const imWidth = 680;
+//           let rate = imObj.width/imObj.height;
+//           if(rate > 2) {
+//             let w = imWidth;
+//             document.getElementById('odai').style.marginLeft = (w + 10) + 'px';
+//             document.getElementById('odai').style.fontSize = '18px';
+//             document.getElementById('answer').style.marginLeft = (w + 10) + 'px';
+//             document.getElementById('answer').style.width = 840 - (w + 10) + 'px';
+//             document.body.style.backgroundSize = imWidth + 'px auto';
+//           }else{
+//             let w = imObj.width * imHeight/imObj.height;
+//             document.getElementById('odai').style.marginLeft = (w + 10) + 'px';
+//             document.getElementById('odai').style.fontSize = '18px';
+//             document.getElementById('answer').style.marginLeft = (w + 10) + 'px';
+//             document.getElementById('answer').style.width = 840 - (w + 10) + 'px';
+//             document.body.style.backgroundSize = 'auto ' + imHeight + 'px';
+//           }
+//           document.getElementById('answer').style.textAlign = 'left';
+//           document.getElementById('answer').style.marginTop = '36px';
+//           document.body.style.backgroundPosition = '5px 5px';
+//         }else{
+//           document.getElementById('odai').style.marginLeft = '8px';
+//           document.getElementById('odai').style.fontSize = '20px';
+//           document.getElementById('answer').style.marginLeft = '0px';
+//           document.getElementById('answer').style.width = '100%';
+
+//           document.getElementById('answer').style.textAlign = 'center';
+//           document.getElementById('answer').style.marginTop = '277px';
+//           document.body.style.backgroundSize = 'auto 240px';
+//           document.body.style.backgroundPosition = 'center 35px';
+//         }
+
+        // updateScaleMode(val);
+      }
+
+      function ku(event) {
+        let kcode;
+        if (document.all) {
+          kcode = event.keyCode;
+        } else {
+          kcode = event.which;
+        }
+        if(kcode == 17){
+          isPressedCtrl = false;
+        }
+      }
+
+      function addKeyEvent() {
+        document.addEventListener('keydown', kd);
+        document.addEventListener('keyup', ku);
+      }
+
+      function toggleEditable() {
+        let el = document.getElementById('answer');
+        if(isEditable) {
+          el.contentEditable = false;
+          isEditable = false;
+        }else{
+          el.contentEditable = true;
+          el.focus();
+          let range = document.createRange();
+          let sel = window.getSelection();
+          let cn = el.childNodes;
+          range.setStart(cn[cn.length - 1], cn[cn.length - 1].length);
+          range.collapse(true);
+          sel.removeAllRanges();
+          sel.addRange(range);
+          isEditable = true;
+        }
+      }
+
+      window.onresize = function() {
+        if (navigator.userAgent.indexOf('iPhone') != -1 || navigator.userAgent.indexOf('iPad') != -1 || navigator.userAgent.indexOf('Android') > 0 || navigator.userAgent.indexOf('WP') != -1) {
+          if(!imObj) {
+            document.getElementById('odai').style.fontSize = document.body.clientWidth/40 + 'px';
+            document.getElementById('answer').style.fontSize = document.body.clientWidth/26 + 'px';
+          }else{
+            document.getElementById('odai').style.fontSize = document.body.clientWidth/70 + 'px';
+            document.getElementById('answer').style.fontSize = document.body.clientWidth/40 + 'px';
+          }
+        }
+      }
+    </script>
+    <style>
+html{
+  display: table;
+  width: 100%;
+  height: 100%;
+}
+body{
+  display: table-cell;
+  text-align: center;
+  vertical-align: middle;
+  background-color:#FF9;
+}
+ruby{
+  font-family:Arial, Verdana, Roboto, "メイリオ" , Meiryo;
+}
+    </style>
+  </head>
+  <body style="overflow:hidden;">
+    <div id="odai" style="position:absolute; top:3px; left:0px; font-size:20px; line-height:130%;font-weight:bold; text-align:left;"></div>
+    <div id="answer" style="margin-bottom:-20px; line-height:1.4em; word-break: break-all; text-align:center; vertical-align:middle; font-size:32px; font-weight:bold;display:inline-block;"></div>
+    <div id="user" style="position:absolute; bottom:10px; left:10px; font-size:20px; font-weight:bold;"></div>
+  </body>
+</html>

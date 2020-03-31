@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <title>ゴミ箱</title>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta http-equiv="Pragma" content="no-cache"><!-- 古い -->
+    <meta http-equiv="Cache-Control" content="no-store"><!-- 古い -->
+    <meta http-equiv="Expires" content="0"><!-- 古い -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script>
+      let selectedNum = 0;
+      let odaiId = 0;
+      let targetOdai = 0;
+      let dispWin = null;
+      let nextOdaiWin = null;
+      let isPressedCtrl = false; // Ctrl が押されているか
+      let init = false;
+
+      let conf = null;
+      let ansReady = false;
+      let selectedAnsReady = false;
+
+      let opacity = 0.0;
+      let timerId = 0;
+      let numOfSelected = 0;
+
+      let rotateAngle = 0;
+      let rotateTimerId;
+      let isFirefox = (navigator.userAgent.indexOf('Firefox') != -1);
+
+      window.onload = function(){
+        let anchors = document.getElementsByTagName('a');
+        for(let i in anchors){
+          anchors[i].href += '?d=' + Date.now();
+        }
+        let query = {};
+        if (location.search.length > 1) {
+          let m_Array = location.search.substring(1).split("&"); 
+          for (let key in m_Array) {
+            let q_Array = m_Array[key].split("=");
+            let name = q_Array[0];
+            query[name] = q_Array[1];
+          }
+        }
+
+        odaiId = query.id;
+        getAnswers(odaiId);
+      }
+
+      window.onunload = function() {
+      }
+
+      function getAnswers(id, order) {
+        let url = './getanswers?odaiId=' + id + '&sortby=date&trashed=1&d=' + Date.now();
+        if(order) {
+          url += '&order=' + order;
+        }else{
+          let orderSelect = document.getElementById('orderSelect');
+          // order = orderSelect.options[orderSelect.selectedIndex].value;
+        }
+
+        let req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+
+        req.onreadystatechange = function(){
+          if(req.readyState == 4 && req.status == 200) {
+            let answers = JSON.parse(req.response);
+            let sortedAnswers = [];
+            if(order) {
+              let rule = order.split('.');
+              answers.sort(function(a,b){
+                if(a[rule[0]] < b[rule[0]]) return -1 * rule[1];
+                if(a[rule[0]] > b[rule[0]]) return 1 * rule[1];
+                if(a.id < b.id) return -1;
+                if(a.id > b.id) return 1;
+                return 0;
+              });
+              if(rule[0] != 'date') {
+                let lastKey = answers[0][rule[0]];
+                let tmpArray = [];
+
+                for(let i in answers) {
+                  if(lastKey != answers[i][rule[0]]) {
+                    lastKey = answers[i][rule[0]];
+                    tmpArray.sort(function(a,b){
+                        if(a.date < b.date) return -1;
+                        if(a.date > b.date) return 1;
+                        return 0;
+                    });
+                    sortedAnswers = sortedAnswers.concat(tmpArray);
+                    tmpArray = [];
+                  }
+                  tmpArray.push(answers[i]);
+                  if(i == answers.length - 1) sortedAnswers = sortedAnswers.concat(tmpArray);
+                }
+              }
+            }
+            console.log(order);
+            console.log(sortedAnswers.length);
+            let anss = document.getElementById('ansContainer');
+            // 子要素を全て削除
+            while (anss.firstChild) anss.removeChild(anss.firstChild);
+            let table = document.createElement('table');
+            table.style.width = '100%';
+            table.style.borderSpacing = '0px';
+            for(let key in answers) {
+              let ans = answers[key];
+              let tr = document.createElement('tr');
+              let tdSentence = document.createElement('td');
+              tdSentence.style.width = '70%';
+              tdSentence.style.whiteSpace = 'pre-wrap';
+              // tdSentence.innerText = ans.sentence;
+              tdSentence.style.padding = '5px 10px';
+              
+              let spanSentence = document.createElement('span');
+              spanSentence.innerText = ans.sentence;
+              spanSentence.style.fontSize = '12px';
+              tdSentence.appendChild(spanSentence);
+
+              let spanBy = document.createElement('span');
+              spanBy.id = 'ans' + ans.user._id;
+              spanBy.userId = ans.user._id;
+              spanBy.style.fontSize = '10px';
+              spanBy.style.display = 'block';
+              let infos = [];
+              let location = ans.user.location;
+              if(location) infos.push(location);
+              let generation = ans.user.generation;
+              if(generation) infos.push(generation);
+              let gender = ans.user.gender;
+              if(gender) infos.push(gender);
+              if(location || generation || gender) spanBy.innerText = '【' + infos.join(' ') + '】';
+              let tdInfo = document.createElement('td');
+              tdInfo.style.fontSize = '9px';
+              tdInfo.style.padding = '5px 10px';
+              tdInfo.style.width = '30%';
+              let ansDate = new Date(ans.date);
+              let datestr = ansDate.getFullYear() + '/' + formatFigure(ansDate.getMonth() + 1) + '/' + formatFigure(ansDate.getDate()) + ' ' + formatFigure(ansDate.getHours()) + '時' + formatFigure(ansDate.getMinutes()) + '分';
+              let pUser = document.createElement('p');
+              pUser.style.margin = '0px';
+              pUser.style.fontSize = '11px';
+              pUser.style.fontWeight = 'bold';
+              pUser.style.display = 'block';
+              pUser.style.color = '#009';
+              pUser.innerText = ans.user.name;
+              tdInfo.appendChild(pUser);
+              if(location || generation || gender) tdInfo.appendChild(spanBy);
+              let spanDate = document.createElement('span');
+              spanDate.style.fontSize = '9px';
+              spanDate.innerText = datestr;
+              tdInfo.appendChild(spanDate);
+              let tdRevert = document.createElement('td');
+              tdRevert.style.width = '10%';
+              tdRevert.style.padding = '10px';
+              let imRevert = document.createElement('img');
+              imRevert.width = 24;
+              imRevert.height = 24;
+              imRevert.title = 'この回答をもどす';
+              imRevert.style.cursor = 'pointer';
+              imRevert.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAYdEVYdFNvZnR3YXJlAHBhaW50Lm5ldCA0LjEuMWMqnEsAAALRSURBVFhHxdVLSFRRGMDx21NrEVQU9CBCehBEQRFUlBC4qVzkQol20vhgFMfxNaKj42sYdXyl4whupU0tjUBrY5sWFQRGj1VgbpowaAwDbTr9z2UmTrcz5ozNbfE75/Kd73zfuXfmzhgOh+O/0gbtpA3aSRu0kza4mrGxsUPhcPgyCrguVFwjdmZ8fHyHbl8y2qDO6OjohZGRkWnmD1hEDCIhFAotM39mnmX2TExMZOvqWJkDyZsp7sYVa8Lg4ODp4eHhu6yJVLDn7dDQ0I2pqalN1poqcyDxFASiNLwpY/JQAwMDbmKf4mvpWKJeqLu7O0ttqjIHGhVDxEX6+vry4evv719W4mmhxgqzn+/IdmtzyRxoFoZQRIPB4LIlth4x6nnptVFtLplDb2/vNEQm9fT0LPBRnP/jAG1tbdsCgcA7CBu87Ozs/O3tMNrb2/d3dXXN+f1+sQ4LiOCbEtOil4vGG34dgBOd6Ojo+Mgs0vCYgkXsz+H6MNfHmYNYiq/rPOep71KfwCUCi8xirch/Q9NCCmjfcdZPkjfD/F2zd8Xn811P5BotLS0Fra2tMYg1mqXIEbWhDnm7qf3IstdE/Gkiz/B6vU6ItWpubo4gX22WDI87mz2T+KHWkDjIMZljNDU13YFIUbSxsdH8xfybhoaGg+TPWfZLPrlueDyeBxQTqWJfpL6+/qK1oQ75ufhi2f+Qta1GXV3dLIVEOri729ZmyZDvQUzZ/5qPcq9RW1srVrHAAd/jGaZxH17cqqmpOUfhLdZGyXDX+6j3KlGb/V/dbvdRg2EJAvPV1dWTzAEUk3QWOdzlAead8gulK5wK6l6N9zK5XK4ig6Z7WEz6d/mvVVVV3aOxbC4FtUmZVFlZmYsoREVFxYw2KcOynE7nEwjM6xIyrqysLK+8vFxI2gQ7lJSUvCgtLV3RLtpE/hTn6RZspQ3aSRu0kzZoH4fxE+mtp23fZO32AAAAAElFTkSuQmCC';
+              imRevert.onclick = function() {
+                goRevert(this, ans._id);
+              }
+              tdRevert.appendChild(imRevert);
+              tr.appendChild(tdSentence);
+              tr.appendChild(tdInfo);
+              tr.appendChild(tdRevert);
+              table.appendChild(tr);
+              // getContestant(spanBy);
+            }
+            if(answers.length) {
+              anss.appendChild(table);
+            }else{
+              let pEmpty = document.createElement('p');
+              pEmpty.style.width = '100%';
+              pEmpty.style.fontSize = '18px';
+              pEmpty.style.textAlign = 'center';
+              pEmpty.innerText = 'このお題のゴミ箱は空です';
+              anss.appendChild(pEmpty);
+            }
+          }
+        };
+        req.open("GET", url, true);
+        req.setRequestHeader("Content-Type" , "application/json");
+        req.send();
+      }
+
+      function goRevert(elem, id) {
+        let url = './trash';
+
+        let req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+
+        req.onreadystatechange = function(){
+          if(req.readyState == 4 && req.status == 200) {
+            let result = eval(req.response);
+            if(!result) {
+              let tr = elem.parentNode.parentNode;
+              tr.parentNode.removeChild(tr);
+              if(window.opener) {
+                window.opener.revert(id);
+                if(document.getElementsByTagName('tr').length == 0) {
+                  // window.opener.closeTrash();
+                  let anss = document.getElementById('ansContainer');
+                  while (anss.firstChild) anss.removeChild(anss.firstChild);
+                  let pEmpty = document.createElement('p');
+                  pEmpty.style.width = '100%';
+                  pEmpty.style.fontSize = '18px';
+                  pEmpty.style.textAlign = 'center';
+                  pEmpty.innerText = 'このお題のゴミ箱は空です';
+                  anss.appendChild(pEmpty);
+                }
+              }else if(window.parent) {
+                window.parent.revert(id);
+                if(document.getElementsByTagName('tr').length == 0) {
+                  // window.parent.closeTrash();
+                  let anss = document.getElementById('ansContainer');
+                  while (anss.firstChild) anss.removeChild(anss.firstChild);
+                  let pEmpty = document.createElement('p');
+                  pEmpty.style.width = '100%';
+                  pEmpty.style.fontSize = '18px';
+                  pEmpty.style.textAlign = 'center';
+                  pEmpty.innerText = 'このお題のゴミ箱は空です';
+                  anss.appendChild(pEmpty);
+                }
+              }
+            }
+          }
+        };
+
+        req.open("POST", url, true);
+        req.send(JSON.stringify({targetId:id}));
+      }
+
+      function refreshList(rule, table, answers, anss) {
+        conf.order = rule;
+        let order = rule.split('.');
+        answers.sort(function(a,b){
+          if(a[order[0]] < b[order[0]]) return -1 * order[1];
+          if(a[order[0]] > b[order[0]]) return 1 * order[1];
+          if(a.id < b.id) return -1;
+          if(a.id > b.id) return 1;
+          return 0;
+        });
+
+        let odaiOps = document.getElementById('odais').options;
+        while (table.firstChild) table.removeChild(table.firstChild);
+        table.style.borderSpacing = '0px';
+
+        for(let key in answers) {
+          let ans = answers[key];
+          let tr = document.createElement('tr');
+          let tdSentence = document.createElement('td');
+          tdSentence.style.width = '200px';
+          tdSentence.style.whiteSpace = 'pre-wrap';
+          // tdSentence.innerText = ans.sentence;
+          tdSentence.style.padding = '5px 10px';
+
+          let spanSentence = document.createElement('span');
+          spanSentence.innerText = ans.sentence;
+          spanSentence.style.fontSize = '12px';
+          tdSentence.appendChild(spanSentence);
+
+          let spanBy = document.createElement('span');
+          spanBy.id = 'ans' + ans.user._id;
+          spanBy.userId = ans.user._id;
+          spanBy.style.fontSize = '10px';
+          spanBy.style.display = 'block';
+          let infos = [];
+          let location = ans.user.location;
+          if(location) infos.push(location);
+          let generation = ans.user.generation;
+          if(generation) infos.push(generation);
+          let gender = ans.user.gender;
+          if(gender) infos.push(gender);
+          if(location || generation || gender) spanBy.innerText = '【' + infos.join(' ') + '】';
+          let tdInfo = document.createElement('td');
+          tdInfo.style.fontSize = '9px';
+          tdInfo.style.padding = '5px 10px';
+          let ansDate = new Date(ans.date);
+          let datestr = ansDate.getFullYear() + '/' + formatFigure(ansDate.getMonth() + 1) + '/' + formatFigure(ansDate.getDate()) + ' ' + formatFigure(ansDate.getHours()) + '時' + formatFigure(ansDate.getMinutes()) + '分';
+          let pUser = document.createElement('p');
+          pUser.style.margin = '0px';
+          pUser.style.fontSize = '11px';
+          pUser.style.fontWeight = 'bold';
+          pUser.style.display = 'block';
+          pUser.style.color = '#009';
+          pUser.innerText = ans.user.name;
+          tdInfo.appendChild(pUser);
+          if(location || generation || gender) tdInfo.appendChild(spanBy);
+          let spanDate = document.createElement('span');
+          spanDate.style.fontSize = '9px';
+          spanDate.innerText = datestr;
+          tdInfo.appendChild(spanDate);
+          let tdRevert = document.createElement('td');
+          tdRevert.style.padding = '10px';
+          let imRevert = document.createElement('img');
+          imRevert.width = 24;
+          imRevert.height = 24;
+          imRevert.title = 'この回答をゴミ箱に';
+          imRevert.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAYdEVYdFNvZnR3YXJlAHBhaW50Lm5ldCA0LjEuMWMqnEsAAALRSURBVFhHxdVLSFRRGMDx21NrEVQU9CBCehBEQRFUlBC4qVzkQol20vhgFMfxNaKj42sYdXyl4whupU0tjUBrY5sWFQRGj1VgbpowaAwDbTr9z2UmTrcz5ozNbfE75/Kd73zfuXfmzhgOh+O/0gbtpA3aSRu0kza4mrGxsUPhcPgyCrguVFwjdmZ8fHyHbl8y2qDO6OjohZGRkWnmD1hEDCIhFAotM39mnmX2TExMZOvqWJkDyZsp7sYVa8Lg4ODp4eHhu6yJVLDn7dDQ0I2pqalN1poqcyDxFASiNLwpY/JQAwMDbmKf4mvpWKJeqLu7O0ttqjIHGhVDxEX6+vry4evv719W4mmhxgqzn+/IdmtzyRxoFoZQRIPB4LIlth4x6nnptVFtLplDb2/vNEQm9fT0LPBRnP/jAG1tbdsCgcA7CBu87Ozs/O3tMNrb2/d3dXXN+f1+sQ4LiOCbEtOil4vGG34dgBOd6Ojo+Mgs0vCYgkXsz+H6MNfHmYNYiq/rPOep71KfwCUCi8xirch/Q9NCCmjfcdZPkjfD/F2zd8Xn811P5BotLS0Fra2tMYg1mqXIEbWhDnm7qf3IstdE/Gkiz/B6vU6ItWpubo4gX22WDI87mz2T+KHWkDjIMZljNDU13YFIUbSxsdH8xfybhoaGg+TPWfZLPrlueDyeBxQTqWJfpL6+/qK1oQ75ufhi2f+Qta1GXV3dLIVEOri729ZmyZDvQUzZ/5qPcq9RW1srVrHAAd/jGaZxH17cqqmpOUfhLdZGyXDX+6j3KlGb/V/dbvdRg2EJAvPV1dWTzAEUk3QWOdzlAead8gulK5wK6l6N9zK5XK4ig6Z7WEz6d/mvVVVV3aOxbC4FtUmZVFlZmYsoREVFxYw2KcOynE7nEwjM6xIyrqysLK+8vFxI2gQ7lJSUvCgtLV3RLtpE/hTn6RZspQ3aSRu0kzZoH4fxE+mtp23fZO32AAAAAElFTkSuQmCC';
+          imRevert.onclick = function() {
+            goRevert(this, ans._id);
+          }
+          tdRevert.appendChild(imRevert);
+          tr.appendChild(tdSentence);
+          tr.appendChild(tdInfo);
+          tr.appendChild(tdRevert);
+          table.appendChild(tr); // なぜか Firefox でこれが重い
+        }
+      }
+
+      function formatFigure(num) {
+        num += "";
+        if (num.length === 1) {
+          num = "0" + num;
+        }
+        return num;
+      }
+
+      function prepareXMLHttpRequest() {
+        if (window.XMLHttpRequest) {
+          return new XMLHttpRequest();
+        } else if (window.ActiveXObject) {
+          return new ActiveXObject("Microsoft.XMLHTTP");
+        }
+        return null;
+      }
+    </script>
+    <style>
+a:link {
+  color: blue;
+}
+a:visited {
+  color: blue;
+}
+a:hover {
+  color: #99F;
+}
+a:active {
+  color: #99F;
+}
+.adminBtn {
+  width:120px;
+  background-image: linear-gradient(0deg, #DEDEDE, #eaf6fd); /* グラデーション */
+  border: 1px solid #6c6c6c; /* 枠線 */
+  border-radius: 0.3em;      /* 角丸 */
+}
+table {
+  border: 1px solid #999;
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: 6px;
+  background-color: #DDD;
+  overflow: hidden;
+}
+table thead th,
+table tbody th,
+table tbody td {
+  padding: .6em 3em;
+  border-bottom: 1px solid #999;
+}
+table thead th {
+}
+table tbody th {
+}
+table thead th + th,
+table tbody td {
+  border-left: 1px solid #999;
+}
+table tbody tr:last-child th,
+table tbody tr:last-child td {
+  border-bottom: none;
+}
+tr:nth-child(even) {
+	background: #EEE;
+}
+    </style>
+  </head>
+  <body style="background-color:#FFF;">
+    <div id="ansContainer" style="padding-top:10px;"></div>
+  </body>
+</html>

@@ -1,0 +1,159 @@
+<!-- This is a static file -->
+<!-- served from your routes in server.js -->
+
+<!-- You might want to try something fancier: -->
+<!-- html/nunjucks docs: https://mozilla.github.io/nunjucks/ -->
+<!-- pug: https://pugjs.org/ -->
+<!-- haml: http://haml.info/ -->
+<!-- hbs(handlebars): http://handlebarsjs.com/ -->
+
+<!DOCTYPE html>
+<html lang="ja" style="height:100%;">
+  <head>
+    <title>大喜利のやつにログイン</title>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta http-equiv="Pragma" content="no-cache"><!-- 古い -->
+    <meta http-equiv="Cache-Control" content="no-store"><!-- 古い -->
+    <meta http-equiv="Expires" content="0"><!-- 古い -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script>
+      window.onload = window.onpageshow = function() {
+        loadMemo();
+        if(navigator.userAgent.indexOf('iPhone') != -1 || navigator.userAgent.indexOf('Android') != -1) {
+          document.getElementById('notice').style.width = '100%';
+        }
+        let anchors = document.getElementsByTagName('a');
+        let jumpto = encodeURIComponent('/');
+        for(let i in anchors){
+          anchors[i].href += '?d=' + Date.now();
+        }
+        var msgs_error = ['ラジオネームとパスワードが一致しません', 'ラジオネームを入力してください'];
+        document.getElementById('userName').focus();
+
+        var query = {};
+        if (location.search.length > 1) {
+          var m_Array = location.search.substring(1).split("&"); 
+          for (var key in m_Array) {
+            var q_Array = m_Array[key].split("=");
+            var name = q_Array[0];
+            query[name] = q_Array[1];
+          }
+        }
+        var errNum = query.errcode;
+        if(errNum && errNum < msgs_error.length) {
+          document.getElementById('err').innerText = msgs_error[errNum];
+          document.getElementById('err').style.visibility = 'visible';
+        }
+        
+        if(errNum == 0) {
+          document.getElementById('pw').style.visibility = 'visible';
+        }
+        
+        // document.getElementById('userName').value = document.cookie;
+        if(errNum == undefined) checkId(document.getElementById('loginform').userName.value);
+
+        if(query.jumpto) {
+          jumpto = query.jumpto;
+          document.getElementById('jumpto').value = jumpto;
+          let hash = location.hash;
+          if(hash) document.getElementById('jumpto').value += hash;
+        }
+      };
+      
+      function setCookie(name) {
+        // document.cookie = name;
+      }
+      
+      function checkId(name) {
+        var url = './find?name=' + encodeURIComponent(name) + '&d=' + Date.now();
+        var msg_existence = document.getElementById('msg_existence');
+        var pw = document.getElementById('pw');
+        var loginbtn = document.getElementById('loginbtn');
+
+        req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+
+        req.onreadystatechange = function(){
+          if(req.readyState == 4 && req.status == 200) {
+            if(req.response != 0) {
+              msg_existence.style.display = 'inline-block';
+              pw.style.visibility = 'visible';
+              loginbtn.value = 'ログイン';
+            }else{
+              msg_existence.style.display = 'none';
+              pw.style.visibility = 'hidden';
+              loginbtn.value = '参加する';
+            }
+          }
+        };
+        req.open("GET", url, true);
+        req.setRequestHeader("Content-Type" , "application/json");
+        req.send();
+      }
+      
+      function saveMemo(text) {
+        localStorage.setItem('memo', text);
+      }
+      
+      function loadMemo() {
+        let memo = localStorage.getItem('memo');
+        if(memo) document.getElementById('memo').value = memo;
+      }
+      
+      function prepareXMLHttpRequest() {
+        if (window.XMLHttpRequest) {
+          return new XMLHttpRequest();
+        } else if (window.ActiveXObject) {
+          return new ActiveXObject("Microsoft.XMLHTTP");
+        }
+        return null;
+      }
+    </script>
+    <style>
+a:link {
+  color: blue;
+}
+a:visited {
+  color: blue;
+}
+a:hover {
+  color: #99F;
+}
+a:active {
+  color: #99F;
+}
+    </style>
+  </head>
+  <body style="background-color:#F0F0F0;">
+    <div id="err" style="visibility:hidden;color:#F00;">&nbsp;</div>
+    
+    <!-- form action="/login" method="post" onsubmit="setCookie(this.userName.value)" -->
+    <form id="loginform" action="/login" method="post">
+      <input type="text" name="userName" id="userName" placeholder="ラジオネーム" oninput="checkId(this.form.userName.value)" onchange="checkId(this.form.userName.value)"/>
+      <span id="msg_existence" style="display:none;color:#090;">存在するユーザです。対応するパスワードを入力するとログインできます。</span><br/>
+      <input type="password" name="pw" id="pw" placeholder="パスワード" style="visibility:hidden"/><br/>
+      <input id="loginbtn" type="submit" value="参加する"/>
+      <input id="jumpto" name="jumpto" type="hidden" value="">
+    </form>
+    <div id="description" style="margin-top:10px;">
+      <p>ユーザ名に対応するパスワードを入力してログインしてください。<br/>未登録のユーザ名を入力すると登録ページに遷移します。</p>
+      <!-- p>Chrome 64, Firefox 58 で動作確認したつもりです。</p -->
+    </div>
+    <div id="notice" style="width:640px;">
+      <!-- p style="position:relative;top:10px;font-weight:bold;font-size:15px;color:#F00;">【重要】データベース移行作業について</p>
+      <p style="font-size:14px;">利用中のクラウドデータベースのサービス終了に伴い、データベースの移行作業を実施いたします。作業は <span style="font-weight:bold;font-size:16px;">2018年10月12日（金）24:00 からの 30 分程度</span>を予定しております。この時間帯は本システムの利用を控えることを割と強めにおすすめします。作業中に加えられた変更は失われる可能性があります。ご不便をおかけして申し訳ありませんが、ご理解とご協力をお願いいたします。<span style="font-size:11px;">データベースの性能はちょっぴり落ちる見込みです(´；ω；`)</span></p -->
+      <!-- p style="position:relative;top:10px;font-weight:bold;font-size:15px;">データベースのメンテナンスについて</p>
+      <p style="font-size:14px;">2018年7月21日（土）午前 2 時からから３日間にわたり、利用しているデータベースサービスのメンテナンス作業が実施される予定です。その期間内はデータベースの参照・書き込みともに不安定になることが予想されます。また、メンテナンス期間中、どこかの５分間（ざっくり……）はデータベースへのアクセスができなくなると予告されています。<br/>7月21日～7月23日の間は当サイトのご利用を控えていただくことを推奨いたします。ご迷惑をおかけして申し訳ありません。よろしくお願いいたします。</p -->
+      <p style="position:relative;top:10px;font-weight:bold;font-size:15px;">簡易メモ</p>
+      <p style="font-size:14px;">気持ちばかりのメモを用意しました。クラウド上のデータとは関係なくブラウザだけに保存されます。よろしければ使ってください。</p>
+    </div>
+    <textarea id="memo" placeholder="メモ" rows="8" style="width:100%;" onchange="saveMemo(this.value)" oninput="saveMemo(this.value)"></textarea>
+    <div>
+      <p style="font-size:12px;">不具合報告などは&nbsp;社長にカンチョー（<a href="https://twitter.com/Drill_into_CEO">@Drill_into_CEO</a>）まで</p>
+    </div>
+  </body>
+</html>

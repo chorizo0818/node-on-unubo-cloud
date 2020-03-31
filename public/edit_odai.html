@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <title>回答編集</title>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta http-equiv="Pragma" content="no-cache"><!-- 古い -->
+    <meta http-equiv="Cache-Control" content="no-store"><!-- 古い -->
+    <meta http-equiv="Expires" content="0"><!-- 古い -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script>
+      let odaiId = null;
+      let sentence = null;
+      let isMobile = false;
+      let isEditable = true;
+      let initText = '';
+
+      let query = {};
+
+      if (location.search.length > 1) {
+        let m_Array = location.search.substring(1).split("&"); 
+        for (let key in m_Array) {
+          let q_Array = m_Array[key].split("=");
+          let name = q_Array[0];
+          query[name] = q_Array[1];
+        }
+        odaiId = query.odaiId;
+        sentence = window.opener.document.getElementById('sentence' + odaiId).innerText;
+        checkEditable(odaiId);
+      }
+      
+      window.onload = function() {
+        if (navigator.userAgent.indexOf('iPhone') != -1 || navigator.userAgent.indexOf('Android') > 0 || navigator.userAgent.indexOf('WP') != -1) {
+          isMobile = true;
+          document.getElementById('execEdit').style.bottom = '40px';
+        }
+        document.getElementById('editarea').value = initText = decodeURIComponent(sentence);
+        document.getElementById('editarea').focus();
+      }
+
+      function checkEditable(odaiId) {
+        let url = './getodai?odaiId=' + odaiId + '&d=' + Date.now();
+        let req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+        req.onreadystatechange = function(){
+          if(req.readyState == 4) {
+            if(req.status == 200) {
+              let odai = JSON.parse(req.response);
+              if(odai.date_release) {
+                isEditable = false;
+                document.getElementById('lock').style.display = 'block';
+                document.getElementById('editarea').disabled = true;
+              }
+            }else{
+              alert(req.response);
+            }
+          }
+        }
+        req.open("GET", url, true);
+        req.setRequestHeader("Content-Type" , "application/json");
+        req.send();
+      }
+
+      function editOdai() {
+        let editSentence = document.getElementById('editarea').value;
+        if(initText == editSentence || !editSentence.trim()) {
+          // 変わってなければ送信しない、トリムで空文字になるなら送信しない
+          return;
+        }
+        var url = './edit_odai?d=' + Date.now();
+        let req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+        req.onreadystatechange = function(){
+          if(req.readyState == 4) {
+            if(req.status == 200) {
+              // if(window.opener) window.opener.redraw();
+              if(window.opener) window.opener.document.getElementById('sentence' + odaiId).innerText = editSentence;
+              window.close();
+            }else{
+              alert(req.response);
+            }
+          }
+        };
+        req.open("POST", url, true);
+        let data = {id: odaiId, sentence:editSentence};
+        req.setRequestHeader("Content-Type" , "text/plain");
+        req.send(JSON.stringify(data));
+      }
+
+      function checkLine(elem) {
+        // // Ctrl+Z で戻せなくなるので履歴を保存してキー入力を監視するか？
+        // const limit = 2;
+        // const lines = elem.value.split('\n');
+        // const lineNum = lines.length;
+        // if(lineNum > limit) {
+        //   elem.value = '';
+        //   for(let i = 0; i < limit - 1; i++) elem.value += lines[i] + '\n';
+        //   elem.value += lines.slice(limit-1, lines.length).join('');
+        // }
+      }
+
+      window.document.onkeypress = lineCheck;
+      function lineCheck(e){
+        var ta = document.getElementById('editarea');
+        var row = ta.getAttribute('rows');
+        var r = (ta.value.split('\n')).length;
+        if(document.all){
+          if(r >= row && window.event.keyCode == 13) { // IE
+            return false;
+          }
+        } else {
+          if(r >= row && e.which==13) {
+            return false;
+          }
+        }
+      }
+
+      function prepareXMLHttpRequest() {
+        if (window.XMLHttpRequest) {
+          return new XMLHttpRequest();
+        } else if (window.ActiveXObject) {
+          return new ActiveXObject("Microsoft.XMLHTTP");
+        }
+        return null;
+      }
+    </script>
+    <style>
+html{
+  display: table;
+  width: 100%;
+  height: 100%;
+}
+body{
+  display: table-cell;
+  text-align: center;
+  vertical-align: middle;
+  width: 100%;
+  height: 100%;
+  overflow:hidden;
+}
+.editor {
+  padding-top:8px;
+  font-size:13px;
+  box-sizing: border-box;
+  height: 100%;
+  margin:0px;
+}
+    </style>
+  </head>
+  <body>
+    <textarea id="editarea" rows="2" oninput="checkLine(this)" class="editor" style="width:100%;height:100%;font-size:18px;"></textarea>
+    <input id="execEdit" type="button" value="編集実行！" style="position:fixed;right:5px;bottom:10px;" onclick="editOdai()"/>
+    <div id="lock" style="position:absolute;left:0px;top:0px;width:100%;height:100%;background-color:rgba(0,0,0,0.5);color:#FFF;font-size:16px;display:none;vertical-align:middle;text-align:center;font-weight:bold">この回答は編集できません</div>
+  </body>
+</html>

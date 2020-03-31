@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="ja" style="height:100%;">
+  <head>
+    <title>回答表示</title>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta http-equiv="Pragma" content="no-cache"><!-- 古い -->
+    <meta http-equiv="Cache-Control" content="no-store"><!-- 古い -->
+    <meta http-equiv="Expires" content="0"><!-- 古い -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script>
+      let query = new Array;
+      let isPressedCtrl = false; // Ctrl が押されているか
+      let isEditable = false;
+      let currentStep = 0;
+      let lastOdai = undefined;
+      let lastAns = undefined;
+
+      addKeyEvent();
+
+      if (location.search.length > 1) {
+        let m_Array = location.search.substring(1).split("&"); 
+        for (i in m_Array) {
+          let q_Array=m_Array[i].split("=");
+          let name=q_Array[0];
+          query[name]=q_Array[1];
+        }
+      }
+
+      window.onunload = function() {
+        if(window.opener) {
+          window.opener.setNull();
+        }
+      }
+
+      window.onload = function() {
+        show(query['odai'], query['answer']);
+        // window.opener.focus();
+      }
+
+      function show(odai, answer) {
+        if(answer != lastAns) {
+          currentStep = 0;
+          document.getElementById('answer').innerHTML = '';
+        }
+        lastAns = answer;
+        lastOdai = odai;
+
+        let rubyMatch1 = /#(.+?)#\[(.+?)\]/g;
+//        let rubyMatch2 = /\[(.+?),\s*(.+?)\s*\]/g; // 配列のフォーマットと同じなので暴発が心配
+        let rubyMatch2 = /\[(.+?)\/(.+?)\s*\]/g;
+        let rubyMatch3 = /@(.+?)\[(.+?)\]/g;
+        let rubyTag = '<ruby>$1<rt style="font-size:17px;margin-bottom:-3px;">$2</rt></ruby>';
+
+        if(!answer) {
+          document.getElementById('answer').innerHTML = '';
+          return;
+        }
+        if(decodeURIComponent(answer).indexOf('[plain]') != -1) {
+          document.getElementById('answer').innerText = decodeURIComponent(answer).replace(/\[plain\]/, '');
+          return;
+        }
+
+        // let lines = answer.split(encodeURIComponent('[boundary]'));
+        let lines = answer.split(encodeURIComponent('[区切]'));
+
+        if(!odai) {
+          if(answer != undefined) {
+            for(let i in lines) {
+              let span = document.createElement('span');
+              span.innerHTML = decodeURIComponent(lines[i]).replace(/\n/g, '<br/>');
+              if(i <= currentStep) {
+                span.style.visibility = 'visible';
+              }else{
+                span.style.visibility = 'hidden';
+              }
+
+              if(answer.indexOf('[plain]') != 0) {
+                answer = answer.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                answer = answer.replace(rubyMatch1, rubyTag);
+                if(currentStep == 0) {
+                  document.getElementById('answer').appendChild(span);
+                }else{
+                  for(let j = 0; j < currentStep+1; j++) {
+                    if(document.getElementById('answer').childNodes[j]) document.getElementById('answer').childNodes[j].style.visibility = 'visible';
+                  }
+                }
+              }else{
+                document.getElementById('answer').innerHTML = answer.replace(/\[plain\]/, '');
+              }
+            }
+          }else{
+            getAnswer();
+          }
+        }else{
+          document.getElementById('odai').innerText = decodeURIComponent(odai);
+          if(answer != undefined) {
+            for(let i in lines) {
+              let span = document.createElement('span');
+              span.innerHTML = decodeURIComponent(lines[i]).replace(/\n/g, '<br/>');
+              if(i <= currentStep) {
+                span.style.visibility = 'visible';
+              }else{
+                span.style.visibility = 'hidden';
+              }
+
+              if(answer.indexOf('[plain]') != 0) {
+                answer = answer.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                answer = answer.replace(rubyMatch1, rubyTag);
+                if(currentStep == 0) {
+                  document.getElementById('answer').appendChild(span);
+                }else{
+                  for(let j = 0; j < currentStep+1; j++) {
+                    if(document.getElementById('answer').childNodes[j]) document.getElementById('answer').childNodes[j].style.visibility = 'visible';
+                  }
+                }
+              }else{
+                document.getElementById('answer').innerHTML = answer.replace(/\[plain\]/, '');
+              }
+            }
+          }
+        }
+        currentStep++;
+      }
+
+      function getAnswer() {
+        let url = './getsingleanswer?ansId=' + query['ansId'] + '&d=' + Date.now();
+
+        req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+
+        req.onreadystatechange = function(){
+          if(req.readyState == 4 && req.status == 200) {
+            let ans = JSON.parse(req.response);
+            document.getElementById('odai').innerText = ans.odai;
+
+            let rubyMatch = /#(.+?)#\[(.+?)\]/g;
+            let rubyTag = '<ruby>$1<rt style="font-size:17px;margin-bottom:-3px;">$2</rt></ruby>';
+            let answer = ans.sentence;
+
+            document.getElementById('answer').innerHTML = answer.replace(/\n/g, '<br/>');
+            if(answer.indexOf('[plain]') != 0) {
+              answer = answer.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+              answer = answer.replace(rubyMatch1, rubyTag);
+            }else{
+              document.getElementById('answer').innerHTML = answer.replace(/\[plain\]/, '');
+            }
+
+            if(ans.user) {
+              let userName = ans.user.name;
+              let location = ans.user.location;
+              let generation = ans.user.generation;
+              let gender = ans.user.gender;
+              let userInfo = "";
+              if(location) userInfo += location + ' ';
+              if(generation) userInfo += generation + ' ';
+              if(gender) userInfo += gender + ' ';
+              userInfo += userName;
+              document.getElementById('user').innerText = userInfo;
+            }
+
+          }
+        };
+        req.open("GET", url, true);
+        req.setRequestHeader("Content-Type" , "application/json");
+        req.send();
+      }
+      
+      function prepareXMLHttpRequest() {
+        if (window.XMLHttpRequest) {
+          return new XMLHttpRequest();
+        } else if (window.ActiveXObject) {
+          return new ActiveXObject("Microsoft.XMLHTTP");
+        }
+        return null;
+      }
+
+      function kd(event) {
+        let kcode;
+        if (document.all) {
+          kcode = event.keyCode;
+        } else {
+          kcode = event.which;
+        }
+        if(kcode == 17){
+          isPressedCtrl = true;
+        }else if(kcode == 88 && isPressedCtrl) {
+          let odais = document.getElementById('odais'); // この行いらない？
+          // document.getElementById('answer').innerText = '';
+          if(!isEditable && window.opener && window.opener.document.getElementById('tainput')) {
+            window.opener.document.getElementById('tainput').value = document.getElementById('answer').innerText;
+            window.opener.simplePreview();
+          }else{
+            document.getElementById('answer').innerText = '';
+          }
+          return false;
+        }else if(kcode == 73 && isPressedCtrl) {
+          toggleEditable(); // Ctrl+I で編集モード
+          return false;
+        }else if(kcode == 39 || kcode == 40) {
+          show(lastOdai, lastAns);
+        }else if(kcode == 37 || kcode == 38) {
+          alert('未実装');
+          // document.getElementById('answer').innerHTML = '';
+          // currentStep -= 2;
+          // show(lastOdai, lastAns);
+        }
+      }
+
+      function ku(event) {
+        let kcode;
+        if (document.all) {
+          kcode = event.keyCode;
+        } else {
+          kcode = event.which;
+        }
+        if(kcode == 17){
+          isPressedCtrl = false;
+        }
+      }
+
+      function addKeyEvent() {
+        document.addEventListener('keydown', kd);
+        document.addEventListener('keyup', ku);
+      }
+
+      function toggleEditable() {
+        let el = document.getElementById('answer');
+        if(isEditable) {
+          el.contentEditable = false;
+          isEditable = false;
+        }else{
+          el.contentEditable = true;
+          el.focus();
+          let range = document.createRange();
+          let sel = window.getSelection();
+          let cn = el.childNodes;
+          range.setStart(cn[cn.length - 1], cn[cn.length - 1].length);
+          range.collapse(true);
+          sel.removeAllRanges();
+          sel.addRange(range);
+          isEditable = true;
+        }
+      }
+    </script>
+    <style>
+html{
+  display: table;
+  width: 100%;
+  height: 100%;
+}
+body{
+  font-family:Arial, Verdana, Roboto, "メイリオ" , Meiryo;
+  display: table-cell;
+  text-align: center;
+  vertical-align: middle;
+  background-color:#FF9;
+}
+    </style>
+  </head>
+  <body style="overflow:hidden;">
+    <div id="odai" style="position:absolute; top:10px; left:10px; font-size:20px; font-weight:bold;"></div>
+    <div id="answer" style="margin-bottom:-20px; line-height:1.5em; word-break: break-all; width:100%; text-align:center; vertical-align:middle; font-size:32px; font-weight:bold;"></div>
+    <div id="user" style="position:absolute; bottom:10px; left:10px; font-size:20px; font-weight:bold;"></div>
+  </body>
+</html>

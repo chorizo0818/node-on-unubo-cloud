@@ -1,0 +1,321 @@
+<!-- This is a static file -->
+<!-- served from your routes in server.js -->
+
+<!-- You might want to try something fancier: -->
+<!-- html/nunjucks docs: https://mozilla.github.io/nunjucks/ -->
+<!-- pug: https://pugjs.org/ -->
+<!-- haml: http://haml.info/ -->
+<!-- hbs(handlebars): http://handlebarsjs.com/ -->
+
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <title>お題プロパティ編集</title>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta http-equiv="Pragma" content="no-cache"><!-- 古い -->
+    <meta http-equiv="Cache-Control" content="no-store"><!-- 古い -->
+    <meta http-equiv="Expires" content="0"><!-- 古い -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script>
+      let users = [];
+      
+      window.onload = function() {
+        let anchors = document.getElementsByTagName('a');
+        for(let i in anchors){
+          anchors[i].href += '?d=' + Date.now();
+        }
+        getUsers();
+      }
+      
+      function getUsers() {
+        let url = './getusers?d=' + Date.now();
+
+        let req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+
+        req.onreadystatechange = function(){
+          if(req.readyState == 4 && req.status == 200) {
+            users = JSON.parse(req.response);
+            getAllOdais();
+          }
+        };
+        req.open("GET", url, true);
+        req.setRequestHeader("Content-Type" , "application/json");
+        req.send();
+      }
+      
+      function getAllOdais() {
+        let url = './getallodais?d=' + Date.now();
+
+        let req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+
+        req.onreadystatechange = function(){
+          if(req.readyState == 4 && req.status == 200) {
+            let odais = JSON.parse(req.response);
+
+            let odai_released = [];
+            let odai_notyet = [];
+            for(var i in odais) {
+              if(odais[i].date_release) {
+                odai_released.push(odais[i]);
+              } else {
+                odai_notyet.push(odais[i]);
+              }
+            }
+            odai_notyet.sort(function(a,b){
+              if(a.id < b.id) return -1;
+              if(a.id > b.id) return 1;
+              return 0;
+            });
+            odais = odai_released.concat(odai_notyet);
+            
+            for(let key in odais) {
+              let p = document.createElement('p');
+              p.style.whiteSpace = 'nowrap';
+              
+              let odaiSpan = document.createElement('span');
+              let br = document.createElement('br');
+              odaiSpan.style.fontSize = '16px';
+              odaiSpan.style.fontWeight = 'bold';
+              odaiSpan.innerText = odais[key].sentence;
+
+              let userSpan = document.createElement('span');
+              userSpan.innerText = '作成者';
+              let userSelect = document.createElement('select');
+
+              /*
+              userSelect.addEventListener('change', function(e) {
+                alert(userSelect.childNodes[userSelect.selectedIndex].value);
+              });
+              */
+
+              for(let i in users) {
+                let userOpt = document.createElement('option');
+                userOpt.innerText = users[i].name;
+                userOpt.value = users[i]._id;
+                userSelect.appendChild(userOpt);
+                if(odais[key].user_id == users[i]._id) {
+                  userOpt.selected = true;
+                }
+              }
+
+              p.id = 'p' + odais[key].id;
+              if(odais[key].img) {
+                let imContainer = document.createElement('div');
+                imContainer.style.width = '72px';
+                imContainer.style.display = 'block';
+                imContainer.style.marginBottom = '-5px';
+                let im = document.createElement('img');
+                im.onload = function() {
+                  this.height = 36;
+                }
+                im.src = odais[key].img;
+                im.style.border = '1px solid #000';
+                im.style.borderRadius = '3px';
+                imContainer.appendChild(im);
+                p.appendChild(imContainer);
+              }
+              p.appendChild(odaiSpan);
+              p.appendChild(br);
+              p.appendChild(userSpan);
+              p.appendChild(userSelect);
+              
+              //if(odais[key].date_release) {
+                let spanRelease = document.createElement('span');
+                spanRelease.innerText = '  公開日時';
+                
+                let releaseDate = new Date(odais[key].date_release);
+                let inputRelease = document.createElement('input');
+                try{
+                  inputRelease.type = 'datetime-local';
+                }catch(e){
+                  inputRelease.type = 'text';
+                }
+
+                // alert(releaseDate);
+                let releaseYear = releaseDate.getFullYear();
+                let releaseMonth = formatFigure(releaseDate.getMonth() + 1);
+                let releaseDay = formatFigure(releaseDate.getDate());
+                let releaseHours = formatFigure(releaseDate.getHours());
+                let releaseMinutes = formatFigure(releaseDate.getMinutes());
+                let releaseYmd = releaseYear + "-" + releaseMonth + "-" + releaseDay + 'T' + releaseHours + ':' + releaseMinutes;
+                if(releaseDate == 'Invalid Date') {
+                  releaseYmd = '年4桁-月2桁-日2桁T時2桁(24時間表記):分2桁';
+                }
+                inputRelease.value = releaseYmd;
+                p.appendChild(spanRelease);
+                p.appendChild(inputRelease);
+              //}
+              
+              //if(odais[key].date_close) {
+                let spanClose = document.createElement('span');
+                spanClose.innerText = '  終了日時';
+                
+                let closeDate = new Date(odais[key].date_close);
+                let inputClose = document.createElement('input');
+                try{
+                  inputClose.type = 'datetime-local';
+                }catch(e){
+                  inputClose.type = 'text';
+                }
+
+                // alert(closeDate);
+                let closeYear = closeDate.getFullYear();
+                let closeMonth = formatFigure(closeDate.getMonth() + 1);
+                let closeDay = formatFigure(closeDate.getDate());
+                let closeHours = formatFigure(closeDate.getHours());
+                let closeMinutes = formatFigure(closeDate.getMinutes());
+                let closeYmd = closeYear + "-" + closeMonth + "-" + closeDay + 'T' + closeHours + ':' + closeMinutes;
+                if(closeDate == 'Invalid Date') {
+                  closeYmd = '年4桁-月2桁-日2桁T時2桁(24時間表記):分2桁';
+                }
+                inputClose.value = closeYmd;
+                p.appendChild(spanClose);
+                p.appendChild(inputClose);
+              //}
+              
+              let spacer1 = document.createElement('span');
+              spacer1.innerText = ' ';
+              p.appendChild(spacer1);
+
+              let btnReset = document.createElement('input');
+              btnReset.type = 'button';
+              btnReset.value = 'リセット';
+              btnReset.addEventListener('click', function(e) {
+                for(let i in userSelect) {
+                  if(userSelect.childNodes[i].value == odais[key].user_id) {
+                    userSelect.selectedIndex = i;
+                    break;
+                  }
+                }
+                inputRelease.value = releaseYmd;
+                inputClose.value = closeYmd;
+              });
+              p.appendChild(btnReset);
+
+              let spacer2 = document.createElement('span');
+              spacer2.innerText = ' ';
+              p.appendChild(spacer2);
+
+              let btnUpdate = document.createElement('input');
+              btnUpdate.type = 'button';
+              btnUpdate.value = '更新';
+              btnUpdate.addEventListener('click', function(e) {
+                let sendObj = {odai_id:odais[key]._id};
+                sendObj.user_id = userSelect.childNodes[userSelect.selectedIndex].value;
+                if(inputRelease.value) {
+                  if(new Date(inputRelease.value) == 'Invalid Date') {
+                    alert('公開日時は\n年4桁-月2桁-日2桁T時2桁(24時間表記):分2桁\nのフォーマットで入力する必要があります。\n【例】2016-02-05T20:30\n日時の設定を解除するには空文字を入力してください。');
+                    return;
+                  }
+                  sendObj.date_release = inputRelease.value;
+                }
+                if(inputClose.value) {
+                  if(new Date(inputClose.value) == 'Invalid Date') {
+                    alert('終了日時は\n年4桁-月2桁-日2桁T時2桁(24時間表記):分2桁\nのフォーマットで入力する必要があります。\n【例】2016-02-05T20:30\n日時の設定を解除するには空文字を入力してください。');
+                    return;
+                  }
+                  sendObj.date_close = inputClose.value;
+                }
+                updateOdai(sendObj);
+              });
+              p.appendChild(btnUpdate);
+
+              document.getElementById('odaiContainer').appendChild(p);
+            }
+          }
+        };
+        req.open("GET", url, true);
+        req.setRequestHeader("Content-Type" , "application/json");
+        req.send();
+      }
+      
+      function updateOdai(sendObj) {
+        var url = './update_odai';
+
+        req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+
+        req.onreadystatechange = function(){
+          if(req.readyState == 4 && req.status == 200) {
+            location.reload(true);
+          }else if(req.readyState == 4 && req.status == 400) {
+            alert(req.response);
+          }
+        };
+        req.open("POST", url, true);
+        req.send(JSON.stringify(sendObj));
+      }
+      
+      function formatFigure(num) {
+        num += "";
+        if (num.length === 1) {
+          num = "0" + num;
+        }
+        return num;     
+      }
+      
+      function setDates() {
+        let inputs = document.getElementsByTagName('input');
+        for(let i in inputs) {
+          console.log(inputs[i].type + ':' + inputs[i].value);
+          if(inputs[i].type == 'datetime-local') {
+            //alert(inputs[i].value);
+            //inputs[i].value = undefined; // こっちより
+            inputs[i].value = ''; // こっちの方が良さそう
+          }
+        }
+      }
+      
+      function prepareXMLHttpRequest() {
+        if (window.XMLHttpRequest) {
+          return new XMLHttpRequest();
+        } else if (window.ActiveXObject) {
+          return new ActiveXObject("Microsoft.XMLHTTP");
+        }
+        return null;
+      }
+    </script>
+    <style>
+.adminBtn {
+  width:120px;
+  background-image: linear-gradient(0deg, #DEDEDE, #eaf6fd); /* グラデーション */
+  border: 1px solid #6c6c6c; /* 枠線 */
+  border-radius: 0.3em;      /* 角丸 */
+}
+a:link {
+  color: blue;
+}
+a:visited {
+  color: blue;
+}
+a:hover {
+  color: #99F;
+}
+a:active {
+  color: #99F;
+}
+    </style>
+  </head>
+  <body style="background-color:#EDF6FF;">
+    <div>
+      <span id="links">
+        <a href="./result">結果参照</a> | <a href="./answer">回答する</a> | <a href="./sendodai">お題投稿</a> | <a href="./editprofile">ユーザ情報変更</a> | <a href="./logout">ログアウト</a><br/>
+        <!-- <input type="button" class="adminBtn" value="お題選択" onclick="window.location.href='./admin?mode=selectOdai'"/> --><input type="button" class="adminBtn" value="回答評価" onclick="window.location.href='./admin?mode=eval'"/><input type="button" class="adminBtn" value="お題属性変更" onclick="window.location.href='./editodai'"/><input type="button" class="adminBtn" value="データ管理" onclick="window.open('./admin?mode=backup', 'manageData', 'width=480,height=320')"/><input type="button" class="adminBtn" value="パスワード再発行" onclick="window.open('./admin?mode=makepw', 'makepw', 'width=540,height=240')"/>
+      </span>
+    </div>
+    <h1 style="font-size:20px;">お題のプロパティを変更</h1>
+    <div id="odaiContainer"></div>
+  </body>
+</html>

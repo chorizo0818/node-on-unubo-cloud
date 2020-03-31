@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <title>バックアップと復元</title>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta http-equiv="Pragma" content="no-cache"><!-- 古い -->
+    <meta http-equiv="Cache-Control" content="no-store"><!-- 古い -->
+    <meta http-equiv="Expires" content="0"><!-- 古い -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script>
+      let query = {};
+      
+      let messagePos = 300;
+      let message;
+      let vel = 0.0;
+      let acc = 0.3;
+      let opacity = 1.0;
+      let timerId = 0;
+      let target = null; // 不要かも
+      let backupDate = null;
+      let backupSizeLimit = 10; // MB
+      let backupJson = null;
+      
+      if (location.search.length > 1) {
+        let m_Array = location.search.substring(1).split("&"); 
+        for (let key in m_Array) {
+          let q_Array = m_Array[key].split("=");
+          let name = q_Array[0];
+          query[name] = q_Array[1];
+        }
+      }
+      
+      window.onload = function() {
+        document.getElementById('dl').addEventListener('click', function(){
+          location.href = '/backup?d=' + Date.now();
+        }, false);
+
+        let body = document.body;
+        let dropArea = document.getElementById('drop_area');
+
+        body.ondragover = body.ondragenter = dropArea.ondragover = dropArea.ondragenter = function(event) {
+          body.style.backgroundColor = '#FFF';
+          dropArea.style.color = '#F99';
+          dropArea.innerText = 'ドロップしてください';
+          event.stopPropagation();
+          event.preventDefault();
+        }
+
+        body.ondragleave = body.ondragend = dropArea.ondragleave = dropArea.ondragend = function(event) {
+          body.style.backgroundColor = '#EDF6FF';
+          dropArea.style.color = '#666';
+          dropArea.innerText = 'ここにバックアップファイルをドロップ';
+          event.stopPropagation();
+          event.preventDefault();
+          return false;
+        }
+
+        body.ondrop = dropArea.ondrop = function(event) {
+          body.style.backgroundColor = '#EDF6FF';
+          dropArea.style.color = '#666';
+          event.stopPropagation();
+          event.preventDefault();
+          let filesArray = event.dataTransfer.files;
+          if(filesArray.length > 1) {
+            alert('一度に指定できるファイルは１つです。');
+            return;
+          }
+
+          let objFileReader = new FileReader();
+          objFileReader.onload = (function(f) {
+            return function(e) {
+              if(f.size > 1024*1024*backupSizeLimit) {
+                alert('ファイルが大きすぎます。\n上限は ' + backupSizeLimit + ' MB です。\n\n入力ファイルサイズ：' + (f.size/1024/1024).toFixed(2) + ' MB');
+                return;
+              }
+              if(f.type && f.type != 'application/json') {
+                alert('バックアップファイルではありません。' + f.type);
+                return;
+              }
+              let splitExtention = f.name.split('.');
+              if(splitExtention.length != 2 || splitExtention[1] != 'json') {
+                alert('バックアップファイルではありません。/n読み込めるのはJSONのみです。');
+                return;
+              }else{
+                let targetAndDate = splitExtention[0].split('_');
+                if(targetAndDate.length != 2) {
+                  alert('バックアップファイルではありません。\nファイル名の形式が異なります。');
+                  return;
+                }else{
+                  let d = targetAndDate[1];
+                  if(d.length != 12) {
+                    alert('バックアップファイルではありません。\nファイル名の形式が異なります。');
+                    return;
+                  }else{
+                    try{
+                      if(d != parseInt(d)) {
+                        alert('バックアップファイルではありません。\nファイル名の形式が異なります。');
+                        return;
+                      }
+                    }catch(ex){
+                      alert('バックアップファイルではありません。\nファイル名の形式が異なります。');
+                      return;
+                    }
+                  }
+                  backupDate = [d.slice(0, 4), "年", d.slice(4, 6), "月", d.slice(6, 8), "日", d.slice(8, 10), "時", d.slice(10, 12), '分'].join('');
+                }
+              }
+              if(backupDate) {
+                try{
+                  backupJson = e.target.result;
+                }catch(e){
+                  alert('JSONの形式が異常です。');
+                  return;
+                }
+                if(confirm(backupDate + ' の状態に復元を試みます')) {
+                  restore(e.target.result, backupDate);
+                  dropArea.innerText = '復元中\nお待ちください';
+                }else{
+                  dropArea.innerText = 'ここにバックアップファイルをドロップ';
+                }
+              }
+            };
+          })(filesArray[0]);
+          objFileReader.readAsText(filesArray[0]);
+        }
+      }
+      
+      function restore(sendData, dateTimeStr) {
+        let url_update = './restore?d=' + Date.now();
+
+        try{
+          sendData = JSON.stringify(JSON.parse(sendData));
+        }catch(e){
+          alert(e);
+        }
+
+        let req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+
+        req.onreadystatechange = function(){
+          if(req.readyState == 4) {
+            // alert(req.response);
+            document.getElementById('drop_area').innerText = req.response;
+            if(req.status == 200) document.getElementById('drop_area').innerText += '\nデータは' + dateTimeStr + 'の状態です';
+          }
+        };
+        req.open("POST", url_update, true);
+        req.send(JSON.stringify(sendData));
+      }
+      
+      function prepareXMLHttpRequest() {
+        if (window.XMLHttpRequest) {
+          return new XMLHttpRequest();
+        } else if (window.ActiveXObject) {
+          return new ActiveXObject("Microsoft.XMLHTTP");
+        }
+        return null;
+      }
+
+      function getNowYMD(dt){
+        let year = dt.getFullYear();
+        let month = ('00' + (dt.getMonth()+1)).slice(-2);
+        let day = ('00' + dt.getDate()).slice(-2);
+        let hour = ('00' + dt.getHours()).slice(-2);
+        let minute = ('00' + dt.getMinutes()).slice(-2);
+        let result = year + '' + month + '' + day + '' + hour + '' + minute;
+        return result;
+      }
+      function movePage(select) {
+        if(!select.options[select.selectedIndex].value) return;
+        location.href = select.options[select.selectedIndex].value;
+      }
+    </script>
+    <style>
+html{
+  display: table;
+  width: 100%;
+  height: 100%;
+}
+body{
+  display: table-cell;
+  text-align: center;
+  vertical-align: middle;
+  background-color:#EDF6FF;
+}
+input[type="button"] {
+   /* input要素のうちtype属性値がbuttonのものに対して装飾 */
+   background-image: linear-gradient(0deg, #DDD, #FEFEFE); /* グラデーション */
+   border: 1px solid #999; /* 枠線 */
+   border-radius: 0.3em;      /* 角丸 */
+}
+    </style>
+  </head>
+  <body>
+    <span id="drop_area" style="pointer-events:none;color:#666;font-size:18px;font-weight:bold;">ここにバックアップファイルをドロップ</span>
+    <div style="position:fixed;left:0px;top:0px;">
+      <input type="button" id="dl" value="バックアップファイルをダウンロード"/>
+      <!-- label for="select_link">直接編集</label -->
+      <!-- select id="select_link" onchange="movePage(this)">
+        <option value="">直接編集</option>
+        <option value="/admin?mode=crud&target=config">設定</option>
+        <option value="/admin?mode=crud&target=users">ユーザ</option>
+        <option value="/admin?mode=crud&target=odais">お題</option>
+        <option value="/admin?mode=crud&target=answers">回答</option>
+      </select -->
+    </div>
+  </body>
+</html>

@@ -1,0 +1,115 @@
+<!-- This is a static file -->
+<!-- served from your routes in server.js -->
+
+<!-- You might want to try something fancier: -->
+<!-- html/nunjucks docs: https://mozilla.github.io/nunjucks/ -->
+<!-- pug: https://pugjs.org/ -->
+<!-- haml: http://haml.info/ -->
+<!-- hbs(handlebars): http://handlebarsjs.com/ -->
+
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <title>大喜利のやつに新規ユーザ</title>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta http-equiv="Pragma" content="no-cache"><!-- 古い -->
+    <meta http-equiv="Cache-Control" content="no-store"><!-- 古い -->
+    <meta http-equiv="Expires" content="0"><!-- 古い -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      input[type=text], input[type=password] {
+        width:200px;
+      }
+    </style>
+    <script>
+      let myName;
+      let errNum;
+      
+      window.onload = function() {
+        let anchors = document.getElementsByTagName('a');
+        for(let i in anchors){
+          anchors[i].href += '?d=' + Date.now();
+        }
+        var msgs_error = ['パスワードを入力してください'];
+        var query = {};
+        if (location.search.length > 1) {
+          var m_Array = location.search.substring(1).split("&"); 
+          for (var key in m_Array) {
+            var q_Array = m_Array[key].split("=");
+            var name = q_Array[0];
+            query[name] = q_Array[1];
+          }
+        }
+        errNum = query.errcode;
+        if(errNum && errNum < msgs_error.length) {
+          document.getElementById('pwrequire').innerText = msgs_error[errNum];
+        }
+        
+        getUser();
+      };
+      
+      function getUser() {
+        var url = './getuser?d=' + Date.now();
+
+        req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+
+        req.onreadystatechange = function(){
+          if(req.readyState == 4 && req.status == 200) {
+            try {
+              let user = JSON.parse(req.response);
+              myName = user.name;
+              let span = document.getElementById('newComer');
+              span.innerText = myName + ' さんとして';
+              if(errNum != undefined) {
+                if(user.location) document.getElementById('location').value = user.location;
+                if(user.generation) document.getElementById('generation').value = user.generation;
+                if(user.gender) document.getElementById('gender').value = user.gender;
+              }
+            }catch(e){}
+          }
+        };
+        req.open("GET", url, true);
+        req.setRequestHeader("Content-Type" , "application/json");
+        req.send();
+      }
+
+      function togglePasswordVisibility() {
+        pw.type == 'password' ? pw.type = 'text' : pw.type = 'password';
+        setTimeout(function() {
+          pw.type = 'password';
+        }, 2000)
+      }
+
+      function prepareXMLHttpRequest() {
+        if (window.XMLHttpRequest) {
+          return new XMLHttpRequest();
+        } else if (window.ActiveXObject) {
+          return new ActiveXObject("Microsoft.XMLHTTP");
+        }
+        return null;
+      }
+    </script>
+  </head>
+  
+  <body>
+    <form action="/exec" id="confirmform" method="post">
+      <p>
+        <span id="newComer"></span>参加しますか？
+      </p>
+      <input type="text" id="location" name="location" placeholder="おところ（任意）"/><br/>
+      <input type="text" id="generation" name="generation" placeholder="年代（任意）"/><br/>
+      <input type="text" id="gender" name="gender" placeholder="性別（任意）"/><br/>
+      <input id="pw" type="password" name="pw" placeholder="パスワード（必須）"/><input type="button" value="表示" onclick="togglePasswordVisibility()"/><span id="pwrequire" style="color:#F00;">*</span><br/>
+      <div style="margin-top:10px;">
+        <input type="submit" value="新規登録"/>
+        <input type="button" value="キャンセル" onclick="window.location.href='/logout'">
+      </div>
+    </form>
+    
+  </body>
+</html>

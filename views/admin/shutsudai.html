@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <title>出題</title>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta http-equiv="Pragma" content="no-cache"><!-- 古い -->
+    <meta http-equiv="Cache-Control" content="no-store"><!-- 古い -->
+    <meta http-equiv="Expires" content="0"><!-- 古い -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script>
+      let dialog = null;
+      let dlg_yes = null;
+      let dlg_no = null;
+      let dlg_cancel = null;
+      let dlg_preview = null;
+
+      let dispWin = null; // プレビュー用
+
+      let sendFuncCloseElse = null;
+      let sendFuncLeaveElse = null;
+
+      let sendId = null;
+
+      window.onload = function(){
+        dialog = document.getElementById('dialog');
+        dlg_yes = document.getElementById('dlg_yes');
+        dlg_no = document.getElementById('dlg_no');
+        dlg_cancel = document.getElementById('dlg_cancel');
+        dlg_preview = document.getElementById('dlg_preview');
+
+        sendFuncCloseElse = makeSendOdaiFunc(true);
+        sendFuncLeaveElse = makeSendOdaiFunc(false);
+
+        let anchors = document.getElementsByTagName('a');
+        for(let i in anchors){
+          anchors[i].href += '?d=' + Date.now();
+        }
+        getOdais();
+      }
+      
+      function getOdais() {
+        let url = './nextodais?d=' + Date.now();
+
+        req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+
+        req.onreadystatechange = function(){
+          if(req.readyState == 4 && req.status == 200) {
+            let odais = JSON.parse(req.response);
+            for(let key in odais) {
+              let table = document.createElement('table');
+              let tr = document.createElement('tr');
+              table.style.marginBottom = '15px';
+              table.id = odais[key]._id;
+
+              let tdIcons = document.createElement('td');
+              let tdOdai = document.createElement('td');
+
+              let star = document.createElement('img');
+              star.width = 24;
+              star.height= 24;
+              star.style.position = 'relative';
+              star.style.top = '5px';
+              star.style.marginRight = '5px';
+              star.src = 'https://cdn.glitch.com/c67863b4-4868-4c60-8dfb-2af6466bd745%2Fstar.png';
+              if(odais[key].starred){
+                star.style.filter = 'saturate(100%) drop-shadow(0px 0px 1px #000) brightness(100%)';
+                star.title = 'スターをはずす';
+              }else{
+                star.style.filter = 'saturate(0%) drop-shadow(0px 0px 1px #000) brightness(150%)';
+                star.title = 'スターをつける';
+              }
+              star.style.cursor = 'pointer';
+              star.onclick = function() {
+                setStar(this, odais[key]._id);
+              }
+
+              let imTrash = document.createElement('img');
+              imTrash.width = 24;
+              imTrash.height = 24;
+              imTrash.style.display = 'block';
+              imTrash.style.marginTop = '0px';
+              imTrash.style.marginBottom = '20px';
+              imTrash.style.filter = 'drop-shadow(0px 0px 2px #FFFFFF)';
+              imTrash.style.marginRight = '5px';
+              imTrash.style.cursor = 'pointer';
+              imTrash.title = 'この回答をゴミ箱に';
+              imTrash.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAYdEVYdFNvZnR3YXJlAHBhaW50Lm5ldCA0LjEuMWMqnEsAAAInSURBVDhPjZNLSFRRGMfP6OggorQwWrRwIYhEItIiaTMtR9q4mBFkrvN+bQaapUINEQUiGkm5yKA0yBldGEgbsTAUxI2IuCgQokS0lDAfaeNj/H3Xc6eWc+HH/9zv8b/ncY/6/0mn0yWxWKwsGAxejkQiT8Ph8B66j76NRqN1yWTS4fF4SnX5v8ftdleEQqHrFLdDN7ymaQ09gzz8hDF4TByJtFBfZTY7nU477ndIzJDYgD3Gx6jVLMhYYofkttFFejplRua0CdRDBwSKARODZTbRa5dJ2OLx+DUSvSSGi2SA+hvycdOA6dwiuEzwBN1BZRmn6D5sShwO4QfxHPqVntaCQSKRaGZTFkgcUzCOTmmDT2gvuouuQBdjMfzM+HbBwO/3NxD4COLej74AMcvyHkVl46ZRF3yDJfbgZj6ft4mB4uu1BCdBDAbRZ3AEWSBkHuMEdW3oOrH5QCDQKB83Dfh5agiOQg5eUSizOADLYBMdAQNkHz74fL46s1ker9dbTdEQiRzNGehhLBtpGWygz9EYug2TnNxV3a6UYRiV+qsy7XfwEHbAMliHHrjL+y80g17R7UqlUqkKgmmCf9Apjui+FIJpAGtwj1w3KsYvZdm6XSmXy+UQd5CLMwtdsAXWDL5LnvEjkKU94eQu6XbzFtop8MEurMIbin6jc2gfbDEegveMD1juA7i4TPqxkWwh+QVOQY6zcIH0+K+8ixnNnVzrcqWUOgdfaZKXUr8TewAAAABJRU5ErkJggg==';
+              imTrash.onclick = function() {
+                goTrash(this, odais[key]._id);
+              }
+
+              tdIcons.appendChild(star);
+              tdIcons.appendChild(imTrash);
+
+
+              /*
+              let odai = document.createElement('input');
+              odai.type = 'radio';
+              odai.name = 'next';
+              odai.value = odais[key]._id;
+              odai.id = 'odai' + odais[key]._id;
+              odai.style.display = 'none';
+              odai.addEventListener('change', function() {
+//                  alert(this.checked);
+                if(this.checked) confirmSend();
+//                if(dialog.style.display == 'block') dialog.style.display = 'none';
+              });
+              */
+
+              let span = document.createElement('a');
+              span.href = 'javascript:void(0)';
+              span.innerText = odais[key].sentence;
+              span.id = 'span' + odais[key]._id;
+              span.style.fontSize = '14px';
+              span.style.fontWeight = 'bold';
+              span.addEventListener('click', function(e) {
+                // document.getElementById(e.target.id.replace('span', 'odai')).checked = true;
+                if(dialog.style.display == 'block') dialog.style.display = 'none';
+                confirmSend(e.target.id.replace('span', ''), odais[key].sentence, odais[key].img);
+              });
+              let spanCreatedBy = document.createElement('span');
+              spanCreatedBy.innerText = odais[key].sentence;
+              spanCreatedBy.id = 'spanCreatedBy' + odais[key]._id;
+              spanCreatedBy.addEventListener('click', function(e) {
+                document.getElementById(e.target.id.replace('spanCreatedBy', 'odai')).checked = true;
+              });
+              let date = new Date(odais[key].date);
+              datestr = date.getFullYear() + '/' + formatFigure(date.getMonth() + 1) + '/' + formatFigure(date.getDate()) + ' ' + formatFigure(date.getHours()) + '時' + formatFigure(date.getMinutes()) + '分';
+
+              let user = odais[key].user;
+
+              if(user) {
+                let location = user.location;
+                if(location) {
+                  location = ' ' + location;
+                }else{
+                  location = '';
+                }
+                let generation = user.generation;
+                if(generation) {
+                  generation = ' ' + generation;
+                }else{
+                  generation = '';
+                }
+                let gender = user.gender;
+                if(gender) {
+                  gender = ' ' + gender;
+                }else{
+                  gender = '';
+                }
+                let createdBy = '<span style="font-weight:bold;font-size:12px;white-space: nowrap;">' + location + generation + gender + ' ' + user.name + '</span>';
+                spanCreatedBy.innerHTML = '<br/>&nbsp;&nbsp;&nbsp;&nbsp;<span style="font-size:11px;">' + datestr + '  ' + createdBy + '</span>';
+              }else{
+                console.log(odais[key].sentence);
+              }
+              tdOdai.id = 'p' + odais[key]._id;
+              tdOdai.style.fontSize = '12px';
+              tdOdai.style.whiteSpace = 'nowrap';
+              // tdOdai.appendChild(star);
+              // tdOdai.appendChild(odai);
+              tdOdai.appendChild(span);
+              if(odais[key].img) {
+                let img = document.createElement('img');
+                img.src = odais[key].img;
+                img.style.display = 'block';
+                img.style.borderRadius = '5px';
+                img.style.border = '1px solid #666';
+                img.onload = function() {
+                  img.width = img.width/1.5;
+                  img.height = img.height/1.5;
+                  tdOdai.appendChild(img);
+                }
+              }
+              tdOdai.appendChild(spanCreatedBy);
+
+              tr.appendChild(tdIcons);
+              tr.appendChild(tdOdai);
+              table.appendChild(tr);
+
+              document.getElementById('odaiContainer').appendChild(table);
+            }
+          }
+        };
+        req.open("GET", url, true);
+        req.setRequestHeader("Content-Type" , "application/json");
+        req.send();
+      }
+      
+      function formatFigure(num) {
+        num += "";
+        if (num.length === 1) {
+          num = "0" + num;
+        }
+        return num;     
+      }
+
+      function confirmSend(nextId, nextSentence, img) {
+        let odais = document.getElementById('odaiContainer').childNodes;
+
+        // let nextId;
+        // for(let key in odais) {
+        //   try{
+        //     let odai = odais[key].childNodes[0].childNodes[1];
+        //     if(odai.childNodes && odai.childNodes[0].checked) {
+        //       nextSentence = odai.childNodes[1].innerText;
+        //       nextId = odai.childNodes[0].value;
+        //     }
+        //   }catch(e){}
+        // }
+
+        if(!nextId) {
+          alert('選択してください');
+          return;
+        }
+        sendId = nextId;
+        
+        document.getElementById('dlg_caption').innerHTML = '<span style="display:block;text-align:left;font-size:15px;font-weight:bold;margin-top:10px;margin-left:5px;margin-bottom:10px;">' + nextSentence.replace(/\n/g, '<br/>') + '</span>こちらを次回のお題として設定します。<br/><br/>他の公開中のお題を締め切りますか？<br/>「いいえ」だと公開中のお題は公開されたままです';
+
+        //ボタンがクリックされたらダイアログを表示する
+        dialog.style.display = 'block';
+        // dialog.style.top = (window.pageYOffset + 20) + 'px';
+        dialog.style.top = '50px';
+
+        //「はい」がクリックされたら
+        dlg_yes.addEventListener('click', makeSendOdaiFunc(true, nextSentence, img, nextId));
+
+        //「いいえ」がクリックされたら
+        dlg_no.addEventListener('click', makeSendOdaiFunc(false, nextSentence, img, nextId));
+
+        // 「プレビュー」がクリックされたら
+        dlg_preview.addEventListener('click', function() {
+          // 複数回実行されるかもしれないが、影響は小さいだろう
+          if(window.opener) {
+            window.opener.dispAns(nextSentence, img, undefined, sendId);
+          }else if(window.parent) {
+            window.parent.dispAns(nextSentence, img, undefined, sendId);
+          }else{
+            if(dispWin && !dispWin.closed) {
+              if(nextSentence) dispWin.document.getElementById('odai').innerText = nextSentence;
+              if(img) {
+                dispWin.document.body.style.backgroundImage = 'url(' + img + ')';
+                dispWin.document.body.style.backgroundRepeat = 'no-repeat';
+                dispWin.document.body.style.backgroundPosition = 'center 30%';
+              }else{
+                dispWin.document.body.style.backgroundImage = '';
+              }
+            }else{
+              let query = '';
+              if(nextSentence) query += 'odai=' + encodeURIComponent(nextSentence);
+              if(sendId) query += '&odaiId=' + sendId;
+              
+              // if(img) query += '&img=' + encodeURIComponent(img);
+              dispWin = window.open('./display?' + query + '&d=' + Date.now(), 'disp', 'width=840,height=350');
+            }
+          }
+        });
+
+        //「キャンセル」がクリックされたら
+        dlg_cancel.addEventListener('click', hideDialog);
+      }
+
+      function makeSendOdaiFunc(closeElse, nextSentence, img, nextId) {
+        return function() {
+          dialog.style.display = 'none';
+
+          let odais = document.getElementById('odaiContainer').childNodes;
+
+          let url = './setnext';
+
+          req = prepareXMLHttpRequest();
+          if (req == null) {
+            alert('XMLHttpRequest is not supported');
+            return;
+          }
+
+          req.onreadystatechange = function(){
+            if(req.readyState == 4 && req.status == 200) {
+              sendId = null;
+              let container = document.getElementById('odaiContainer');
+              while (container.firstChild) container.removeChild(container.firstChild);
+              getOdais();
+              // location.reload(true);
+
+              if(window.parent) {
+                window.parent.dispAns(nextSentence, img, undefined, nextId);
+                window.parent.showLatestOdai(nextId);
+              }else if(window.opener) {
+                window.opener.dispAns(nextSentence, img, undefined, nextId);
+                window.opener.showLatestOdai(nextId);
+              }
+            }else if(req.readyState == 4 && req.status == 200) {
+              sendId = null;
+            }
+          };
+          req.open("POST", url, true);
+          req.send(JSON.stringify({next: sendId, close_else: closeElse}));
+        }
+      }
+
+      function setStar(elem, id) {
+        let url = './setstar';
+
+        let req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+
+        req.onreadystatechange = function(){
+          if(req.readyState == 4 && req.status == 200) {
+            let result = eval(req.response);
+            if(result) {
+              elem.style.filter = 'saturate(100%) drop-shadow(0px 0px 1px #000) brightness(100%)';
+              elem.title = 'スターをはずす';
+            }else{
+              elem.style.filter = 'saturate(0%) drop-shadow(0px 0px 1px #000) brightness(150%)';
+              elem.title = 'スターをつける';
+            }
+          }
+        };
+
+        req.onerror = function() {
+          alert('エラーが発生しました');
+        }
+
+        req.ontimeout = function() {
+          alert('接続できませんでした');
+        }
+
+        req.open("POST", url, true);
+        req.send(JSON.stringify({targetId:id}));
+      }
+
+      function goTrash(elem, id) {
+        let url = './trash_odai';
+
+        let req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+
+        req.onreadystatechange = function(){
+          if(req.readyState == 4 && req.status == 200) {
+            let result = eval(req.response);
+            const table = document.getElementById(id);
+            table.parentNode.removeChild(table);
+          }
+        };
+
+        req.onerror = function() {
+          alert('エラーが発生しました');
+        }
+
+        req.ontimeout = function() {
+          alert('接続できませんでした');
+        }
+
+        req.open("POST", url, true);
+        req.send(JSON.stringify({targetId:id}));
+      }
+
+      function hideDialog() {
+        dialog.style.display = 'none';
+      }
+
+      /*
+      function setOdai() {
+        let odais = document.getElementById('odaiContainer').childNodes;
+        let nextId;
+        let nextSentence;
+        for(let key in odais) {
+          let odai = odais[key];
+          if(odai.childNodes && odai.childNodes[0].checked) {
+            nextId = odai.childNodes[0].value;
+            nextSentence = odai.childNodes[1].innerText;
+          }
+        }
+        if(!nextId) {
+          alert('選択してください');
+          return;
+        }
+        
+        let url = './setnext';
+        let closeElese = confirm('他の公開中のお題を締め切りますか？\n「キャンセル」だと公開中のお題は公開されたままです');
+
+        req = prepareXMLHttpRequest();
+        if (req == null) {
+          alert('XMLHttpRequest is not supported');
+          return;
+        }
+
+        req.onreadystatechange = function(){
+          if(req.readyState == 4 && req.status == 200) {
+            if(window.opener) window.opener.dispAns(nextSentence);
+            let container = document.getElementById('odaiContainer');
+            while (container.firstChild) container.removeChild(container.firstChild);
+            getOdais();
+            // location.reload(true);
+          }
+        };
+        req.open("POST", url, true);
+        req.send(JSON.stringify({next: nextId, close_else: closeElese}));
+      }
+      */
+      
+      function prepareXMLHttpRequest() {
+        if (window.XMLHttpRequest) {
+          return new XMLHttpRequest();
+        } else if (window.ActiveXObject) {
+          return new ActiveXObject("Microsoft.XMLHTTP");
+        }
+        return null;
+      }
+    </script>
+    <style>
+a:link {
+  text-decoration:none;
+  color: blue;
+}
+a:visited {
+  color: blue;
+}
+a:hover {
+  color: #99F;
+}
+a:active {
+  color: #99F;
+}
+#dialog {
+  position: fixed;
+  top: 0px;
+  right: 0px;
+  left: 0px;
+  display: none;
+  font-size: 14px;
+  width: 480px;
+  height: 185px;
+  background-color: #FFF;
+  margin: auto;
+  padding: 0px 0px 50px 0px;
+  text-align: center;
+  border: 1px solid #aaa;
+  box-shadow: 4px 4px 4px #333;
+  vertical-align: middle;
+}
+    </style>
+  </head>
+  <body style="background-color:#EDF6FF;">
+    <div id="odaiContainer"></div>
+    <div id="dialog">
+      <p id="dlg_caption" style="text-align:left;margin-left:10px;height:150px;margin-bottom:16px;font-size:12px;">他の公開中のお題を締め切りますか？<br/>「いいえ」だと公開中のお題は公開されたままです。</p>
+      <button id="dlg_yes" style="font-size:13px;width:100px;">はい</button><button id="dlg_no" style="font-size:13px;width:100px;">いいえ</button><br/>
+      <button id="dlg_preview" style="font-size:13px;width:100px;">プレビュー</button><button id="dlg_cancel" style="font-size:13px;width:100px;">キャンセル</button>
+    </div>
+  </body>
+</html>
