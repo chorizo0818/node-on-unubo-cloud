@@ -1,4 +1,4 @@
-FROM node:10-slim
+FROM node:10.16-alpine as builder
 
 RUN mkdir /app
 WORKDIR /app
