@@ -5,6 +5,17 @@
     "start": "node server.js"
   },
   "dependencies": {
-    "express": "^4.16.4"
+    "body-parser": "^1.19.0",
+    "cookie-parser": "^1.4.4",
+    "express": "^4.17.1",
+    "mongodb": "^3.5.0",
+    "crypto": "^1.0.1",
+    "request": "^2.88.0",
+    "mimelib": "^0.3.1",
+    "jschardet": "^2.1.1",
+    "iconv-lite": "^0.5.0",
+    "url": "^0.11.0",
+    "canvas": "^2.6.1",
+    "dotenv": "^8.2.0"
   }
 }
