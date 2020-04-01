@@ -49,7 +49,7 @@ app.get('/', (request, response) => {
   }
 });
 
-app.get('/user', function (request, response) {
+app.get('/hello', (request, response) => {
   response.send('Hello World!')
 })
 
