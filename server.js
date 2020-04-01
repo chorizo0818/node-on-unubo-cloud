@@ -1619,7 +1619,21 @@ app.get('/find', function (request, response) {
     response.redirect('https://' + request.headers.host + request.url);
     return;
   }
-  response.send(request.query.name + '');
+  if(request.cookies['pw']) {
+    let isAdmin;
+    if(request.cookies.user) {
+      if(request.cookies.user.is_admin) {
+        isAdmin = true;
+      }
+    }
+    if(isAdmin) {
+      response.sendFile(__dirname + '/views/answer_admin.html');
+    }else{
+      response.sendFile(__dirname + '/views/answer.html');
+    }
+  }else{
+    response.redirect('/?jumpto=' + encodeURIComponent(request.url));
+  }
 });
 /*
 app.get('/find', function(request, response) {
