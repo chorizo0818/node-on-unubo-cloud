@@ -88,11 +88,12 @@ app.get('/answer', function (request, response) {
       response.sendFile(__dirname + '/views/answer.html');
     }
   }else{
-    response.send(request.cookies['test']);
+    response.redirect('/?jumpto=' + encodeURIComponent(request.url));
   }
 });
 
 app.post('/answer', function(request, response) {
+  console.log(request.cookies['test']);
   if(request.cookies['pw']) {
     let isAdmin;
     if(request.cookies.user) {
