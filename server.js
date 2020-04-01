@@ -1616,10 +1616,6 @@ app.get('/logout', function (request, response) {
 });
 
 app.get('/find', function(request, response) {
-  if(!request.secure) {
-    response.redirect('https://' + request.headers.host + request.url);
-    return;
-  }
   let userName = request.query.name;
 console.log('name : ' + userName);
   MongoClient.connect(mongouri, mongoOptions, (error, client) => {
