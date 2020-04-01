@@ -4,6 +4,7 @@ const express = require('express');
 const router = express.Router();
 const app = express();
 const bodyParser = require('body-parser');
+const path = require('path');
 const cookieParser = require('cookie-parser');
 const crypto = require('crypto');
 // const httpsRedirect = require('parse-express-https-redirect'); // HTTPS に強制リダイレクトすべきか
@@ -34,20 +35,6 @@ let pw;
 let timezoneoffset = -9; // 日本のタイムゾーンJSTは-9
 
 app.get('/', (request, response) => {
-  for(let i in request) {
-    if(i == 'query') {
-      for(let j in request.query) {
-        console.log('request.' + j + ' = ' + request.query[j]);
-      }
-    }else{
-      console.log(i);
-    }
-  }
-  // console.log(request.headers['user-agent']); // UserAgent 表示
-  if(!request.secure) {
-    response.redirect('https://' + request.headers.host + request.url);
-    return;
-  }
   if(request.query.path == 'answer') {
     getAnswer(request, response);
   }else{
@@ -68,11 +55,6 @@ router.use('/hello', (request, response) => {
 })
 
 function getAnswer(request, response) {
-  // console.log(request);
-  if(!request.secure) {
-    response.redirect('https://' + request.headers.host + request.url);
-    return;
-  }
   if(request.cookies['pw']) {
     let isAdmin;
     if(request.cookies.user) {
