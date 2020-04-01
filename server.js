@@ -1,6 +1,7 @@
 require('dotenv').config();
 
 const express = require('express');
+const router = express.Router();
 const app = express();
 const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
@@ -62,7 +63,7 @@ app.get('/', (request, response) => {
   }
 });
 
-app.get('/hello', (request, response) => {
+router.get('/hello', (request, response) => {
   response.send('Hello World!')
 })
 
