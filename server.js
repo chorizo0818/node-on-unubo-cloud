@@ -1615,6 +1615,28 @@ app.get('/logout', function (request, response) {
   response.redirect('/');
 });
 
+app.get('/find', function(request, response) {
+  if(!request.secure) {
+    response.redirect('https://' + request.headers.host + request.url);
+    return;
+  }
+  let name = request.query.name;
+
+  MongoClient.connect(mongouri, mongoOptions, (error, client) => {
+    const db = client.db(process.env.DB);
+
+    // コレクションの取得
+    const collection = db.collection('users');
+
+    // コレクション中で条件に合致するドキュメントを取得
+    collection.find({name: {$eq: name}}).toArray((error, documents)=>{
+      response.writeHead(200, { 'Content-Type': 'text/plain' });
+      response.end(documents.length + '');
+      client.close();
+    });
+  });
+});
+
 // ユーザを取得（管理者以外は自分の情報のみ） TODO 大丈夫か？
 app.get('/getuser', function (request, response) {
   if(!request.secure) {
@@ -1935,7 +1957,6 @@ app.get('/initodais', function (request, response) {
   MongoClient.connect(mongouri, mongoOptions, (error, client) => {
     const db = client.db(process.env.DB);
     const collection = db.collection('odais');
-
     // コレクション中で条件に合致するドキュメントを取得
     collection.find({}).sort({'id':-1}).toArray((error, documents)=>{
       let updateCount = 0;
@@ -1967,10 +1988,8 @@ app.get('/getcurrentodai', function (request, response) {
   }
   MongoClient.connect(mongouri, mongoOptions, (error, client) => {
     const db = client.db(process.env.DB);
-
     // コレクションの取得
     const collection = db.collection('odais');
-
     // コレクション中で条件に合致するドキュメントを取得
     collection.find(
       {
