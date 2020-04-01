@@ -54,7 +54,7 @@ router.use('/hello', (request, response) => {
   response.send('Hello World!')
 })
 
-function getAnswer(request, response) {
+app.get('/answer', (request, response) => {
   if(request.cookies['pw']) {
     let isAdmin;
     if(request.cookies.user) {
@@ -70,6 +70,6 @@ function getAnswer(request, response) {
   }else{
     response.redirect('/?jumpto=' + encodeURIComponent(request.url));
   }
-}
+});
 
 app.listen(PORT, () => console.log(`> Ready on http://localhost:${PORT}`));
