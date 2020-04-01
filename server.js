@@ -16,7 +16,21 @@ const ObjectID = require('mongodb').ObjectID;
 const mongouri = 'mongodb+srv://'+process.env.USER+':'+process.env.PASS+'@'+process.env.MONGOHOST+'?retryWrites=true';
 const mongoOptions = {useNewUrlParser:true, useUnifiedTopology:true };
 
+// http://expressjs.com/en/starter/static-files.html
+app.use(express.static('public'));
+app.use(bodyParser.urlencoded({extended: true}));
+app.use(bodyParser.json());
+app.use(cookieParser());
+app.enable('trust proxy'); // HTTPS への強制リダイレクトのため
+
 const PORT = process.env.PORT || 3000;
+
+let conf = null; // 設定（主にソート順）
+const lineLimit = 2; // お題に許容する行数
+
+let userName;
+let pw;
+let timezoneoffset = -9; // 日本のタイムゾーンJSTは-9
 
 app.get('/', (req, res) => {
   res.sendFile(__dirname + '/index.html');
