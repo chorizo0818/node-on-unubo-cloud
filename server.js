@@ -22,7 +22,7 @@ const mongoOptions = {useNewUrlParser:true, useUnifiedTopology:true };
 app.use(express.static('public'));
 app.use(bodyParser.urlencoded({extended: true}));
 app.use(bodyParser.json());
-app.use(cookieParser());
+app.use(express.cookieParser());
 app.enable('trust proxy'); // HTTPS への強制リダイレクトのため
 
 const PORT = process.env.PORT || 3000;
