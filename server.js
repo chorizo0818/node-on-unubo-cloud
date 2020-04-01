@@ -23,6 +23,7 @@ app.use(express.static('public'));
 app.use(bodyParser.urlencoded({extended: true}));
 app.use(bodyParser.json());
 app.use(express.cookieParser());
+app.use(app.router);
 app.enable('trust proxy'); // HTTPS への強制リダイレクトのため
 
 const PORT = process.env.PORT || 3000;
