@@ -32,8 +32,21 @@ let userName;
 let pw;
 let timezoneoffset = -9; // 日本のタイムゾーンJSTは-9
 
-app.get('/', (req, res) => {
-  res.sendFile(__dirname + '/index.html');
+app.get('/', (request, response) => {
+  // console.log(request.headers['user-agent']); // UserAgent 表示
+  if(!request.secure) {
+    response.redirect('https://' + request.headers.host + request.url);
+    return;
+  }
+  if(request.cookies['pw']) {
+    if(request.cookies['user'] && request.cookies['user'].is_admin) {
+      response.redirect('./admin?mode=eval');
+    }else{
+      response.redirect('./answer?d=' + numToStr(Date.now()));
+    }
+  }else{
+    response.sendFile(path.join(__dirname + '/views/index.html'));
+  }
 });
 
 app.listen(PORT, () => console.log(`> Ready on http://localhost:${PORT}`));
