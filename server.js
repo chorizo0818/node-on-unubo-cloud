@@ -38,7 +38,7 @@ app.get('/', (request, response) => {
     response.redirect('https://' + request.headers.host + request.url);
     return;
   }
-  if(request.query.path == '') {
+  if(request.query.path == 'answer') {
     getAnswer(request, response);
   }else{
     if(request.cookies['pw']) {
