@@ -1613,6 +1613,15 @@ app.get('/logout', function (request, response) {
   response.redirect('/');
 });
 
+app.get('/find', function (request, response) {
+  // console.log(request);
+  if(!request.secure) {
+    response.redirect('https://' + request.headers.host + request.url);
+    return;
+  }
+  response.send(request.query.name + '');
+});
+/*
 app.get('/find', function(request, response) {
   let userName = request.query.name;
 console.log('name : ' + userName);
@@ -1630,6 +1639,7 @@ console.log('name : ' + userName);
     });
   });
 });
+*/
 
 // ユーザを取得（管理者以外は自分の情報のみ） TODO 大丈夫か？
 app.get('/getuser', function (request, response) {
