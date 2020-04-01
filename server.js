@@ -22,7 +22,7 @@ const mongoOptions = {useNewUrlParser:true, useUnifiedTopology:true };
 app.use(express.static('public'));
 app.use(bodyParser.urlencoded({extended: true}));
 app.use(bodyParser.json());
-app.use(express.cookieParser());
+app.use(cookieParser());
 app.use(app.router);
 app.enable('trust proxy'); // HTTPS への強制リダイレクトのため
 
@@ -1620,8 +1620,8 @@ app.get('/find', function(request, response) {
     response.redirect('https://' + request.headers.host + request.url);
     return;
   }
-  let name = request.query.name;
-console.log('name : ' + name);
+  let userName = request.query.name;
+console.log('name : ' + userName);
   MongoClient.connect(mongouri, mongoOptions, (error, client) => {
     const db = client.db(process.env.DB);
 
@@ -1629,7 +1629,7 @@ console.log('name : ' + name);
     const collection = db.collection('users');
 
     // コレクション中で条件に合致するドキュメントを取得
-    collection.find({name: {$eq: name}}).toArray((error, documents)=>{
+    collection.find({name: {$eq: userName}}).toArray((error, documents)=>{
       response.writeHead(200, { 'Content-Type': 'text/plain' });
       response.end(documents.length + '');
       client.close();
