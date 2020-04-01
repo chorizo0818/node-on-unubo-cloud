@@ -49,7 +49,7 @@ app.get('/', (request, response) => {
   }
 });
 
-app.get('/answer', function (request, response) {
+app.get('/answer', (request, response) => {
   // console.log(request);
   if(!request.secure) {
     response.redirect('https://' + request.headers.host + request.url);
