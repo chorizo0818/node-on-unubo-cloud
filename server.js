@@ -50,10 +50,6 @@ app.get('/', (request, response) => {
   }
 });
 
-router.use('/hello', (request, response) => {
-  response.send('Hello World!')
-})
-
 app.get('/answer', (request, response) => {
   if(request.cookies['pw']) {
     let isAdmin;
@@ -70,6 +66,28 @@ app.get('/answer', (request, response) => {
   }else{
     response.redirect('/?jumpto=' + encodeURIComponent(request.url));
   }
+});
+
+app.get('/find', function(request, response) {
+  if(!request.secure) {
+    response.redirect('https://' + request.headers.host + request.url);
+    return;
+  }
+  let name = request.query.name;
+
+  MongoClient.connect(mongouri, mongoOptions, (error, client) => {
+    const db = client.db(process.env.DB);
+
+    // コレクションの取得
+    const collection = db.collection('users');
+
+    // コレクション中で条件に合致するドキュメントを取得
+    collection.find({name: {$eq: name}}).toArray((error, documents)=>{
+      response.writeHead(200, { 'Content-Type': 'text/plain' });
+      response.end(documents.length + '');
+      client.close();
+    });
+  });
 });
 
 app.listen(PORT, () => console.log(`> Ready on http://localhost:${PORT}`));
