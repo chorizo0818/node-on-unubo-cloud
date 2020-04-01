@@ -49,6 +49,10 @@ app.get('/', (request, response) => {
   }
 });
 
+app.get('/user', function (request, response) {
+  response.send('Hello World!')
+})
+
 app.get('/answer', (request, response) => {
   // console.log(request);
   if(!request.secure) {
