@@ -63,7 +63,7 @@ app.get('/', (request, response) => {
   }
 });
 
-router.get('/hello', (request, response) => {
+router.use('/hello', (request, response) => {
   response.send('Hello World!')
 })
 
