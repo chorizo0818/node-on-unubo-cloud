@@ -1621,7 +1621,7 @@ app.get('/find', function(request, response) {
     return;
   }
   let name = request.query.name;
-
+console.log('name : ' + name);
   MongoClient.connect(mongouri, mongoOptions, (error, client) => {
     const db = client.db(process.env.DB);
 
