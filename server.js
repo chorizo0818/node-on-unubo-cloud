@@ -88,7 +88,6 @@ app.get('/answer', function (request, response) {
       response.sendFile(__dirname + '/views/answer.html');
     }
   }else{
-    // response.redirect('/?jumpto=' + encodeURIComponent(request.url));
     response.send(request.cookies['test']);
   }
 });
