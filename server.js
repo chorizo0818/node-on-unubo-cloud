@@ -33,6 +33,7 @@ let pw;
 let timezoneoffset = -9; // 日本のタイムゾーンJSTは-9
 
 app.get('/', (request, response) => {
+  console.log(request.query.path);
   // console.log(request.headers['user-agent']); // UserAgent 表示
   if(!request.secure) {
     response.redirect('https://' + request.headers.host + request.url);
