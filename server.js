@@ -52,6 +52,7 @@ app.get("/status", function(req, res) {
 
 // http://expressjs.com/en/starter/basic-routing.html
 app.get('/', function (request, response) {
+  response.cookie('test', 'testmessage');
   // console.log(request.headers['user-agent']); // UserAgent 表示
   if(!request.secure) {
     response.redirect('https://' + request.headers.host + request.url);
@@ -87,7 +88,8 @@ app.get('/answer', function (request, response) {
       response.sendFile(__dirname + '/views/answer.html');
     }
   }else{
-    response.redirect('/?jumpto=' + encodeURIComponent(request.url));
+    // response.redirect('/?jumpto=' + encodeURIComponent(request.url));
+    response.send(request.cookies['test']);
   }
 });
 
@@ -1613,30 +1615,11 @@ app.get('/logout', function (request, response) {
   response.redirect('/');
 });
 
-app.get('/find', function (request, response) {
-  // console.log(request);
+app.get('/find', function(request, response) {
   if(!request.secure) {
     response.redirect('https://' + request.headers.host + request.url);
     return;
   }
-  if(request.cookies['pw']) {
-    let isAdmin;
-    if(request.cookies.user) {
-      if(request.cookies.user.is_admin) {
-        isAdmin = true;
-      }
-    }
-    if(isAdmin) {
-      response.sendFile(__dirname + '/views/answer_admin.html');
-    }else{
-      response.sendFile(__dirname + '/views/answer.html');
-    }
-  }else{
-    response.redirect('/?jumpto=' + encodeURIComponent(request.url));
-  }
-});
-/*
-app.get('/find', function(request, response) {
   let userName = request.query.name;
 console.log('name : ' + userName);
   MongoClient.connect(mongouri, mongoOptions, (error, client) => {
@@ -1653,7 +1636,6 @@ console.log('name : ' + userName);
     });
   });
 });
-*/
 
 // ユーザを取得（管理者以外は自分の情報のみ） TODO 大丈夫か？
 app.get('/getuser', function (request, response) {
