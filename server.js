@@ -1,7 +1,6 @@
 require('dotenv').config();
 
 const express = require('express');
-const router = express.Router();
 const app = express();
 const bodyParser = require('body-parser');
 const path = require('path');
@@ -23,7 +22,6 @@ app.use(express.static('public'));
 app.use(bodyParser.urlencoded({extended: true}));
 app.use(bodyParser.json());
 app.use(cookieParser());
-app.use(app.router);
 app.enable('trust proxy'); // HTTPS への強制リダイレクトのため
 
 const PORT = process.env.PORT || 3000;
