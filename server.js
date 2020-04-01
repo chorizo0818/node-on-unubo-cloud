@@ -38,14 +38,18 @@ app.get('/', (request, response) => {
     response.redirect('https://' + request.headers.host + request.url);
     return;
   }
-  if(request.cookies['pw']) {
-    if(request.cookies['user'] && request.cookies['user'].is_admin) {
-      response.redirect('./admin?mode=eval');
-    }else{
-      response.redirect('./answer?d=' + numToStr(Date.now()));
-    }
+  if(request.query.path == '') {
+    getAnswer(request, response);
   }else{
-    response.sendFile(path.join(__dirname + '/views/index.html'));
+    if(request.cookies['pw']) {
+      if(request.cookies['user'] && request.cookies['user'].is_admin) {
+        response.redirect('./admin?mode=eval');
+      }else{
+        response.redirect('./answer?d=' + numToStr(Date.now()));
+      }
+    }else{
+      response.sendFile(path.join(__dirname + '/views/index.html'));
+    }
   }
 });
 
@@ -53,7 +57,7 @@ app.get('/hello', (request, response) => {
   response.send('Hello World!')
 })
 
-app.get('/answer', (request, response) => {
+function getAnswer(request, response) {
   // console.log(request);
   if(!request.secure) {
     response.redirect('https://' + request.headers.host + request.url);
@@ -74,6 +78,6 @@ app.get('/answer', (request, response) => {
   }else{
     response.redirect('/?jumpto=' + encodeURIComponent(request.url));
   }
-});
+}
 
 app.listen(PORT, () => console.log(`> Ready on http://localhost:${PORT}`));
