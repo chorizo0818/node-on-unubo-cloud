@@ -76,12 +76,6 @@ a:hover {
 a:active {
   color: #99F;
 }
-.adminBtn {
-  width:120px;
-  background-image: linear-gradient(0deg, #DEDEDE, #eaf6fd); /* グラデーション */
-  border: 1px solid #6c6c6c; /* 枠線 */
-  border-radius: 0.3em;      /* 角丸 */
-}
     </style>
     <script>
       let myName;
@@ -99,6 +93,7 @@ a:active {
       let isIE = false;
       let odaiData = [];
       let currentImg = null;
+      let currentNote = null;
       let numDropped = 0;
       let suspendedImg = null;
       let suspendedOdai = '';
@@ -110,7 +105,10 @@ a:active {
           isMobile = true;
           if(isMobile) document.getElementsByClassName('odai')[0].style.width = '80%';
         }
-
+        if(isMobile) {
+          document.getElementById('links').style.display = 'none';
+          document.getElementById('select_link').style.display = 'block';
+        }
         let anchors = document.getElementsByTagName('a');
         for(let i in anchors){
           anchors[i].href += '?d=' + Date.now();
@@ -123,7 +121,7 @@ a:active {
         }
 
         document.body.ondragleave = document.body.ondragend = document.body.ondrop = function(event) {
-          this.style.backgroundColor = '#EDF6FF';
+          this.style.backgroundColor = '#FFFFE0';
           event.stopPropagation();
           event.preventDefault();
           let filesArray = event.dataTransfer.files;
@@ -138,7 +136,7 @@ a:active {
           for (let i = 0; i < filesArray.length; i++) {
             let f = filesArray[i];
             let objFileReader = new FileReader();
-            // Data Uri の表示
+
             objFileReader.onload = (handleFile)(f, objFileReader, sentence);
             objFileReader.readAsDataURL(f);
           }
@@ -160,7 +158,7 @@ a:active {
         for (let i = 0; i < filesArray.length; i++) {
           let f = filesArray[i];
           let objFileReader = new FileReader();
-          // Data Uri の表示
+
           objFileReader.onload = (handleFile)(f, objFileReader, sentence);
           objFileReader.readAsDataURL(f);
         }
@@ -390,13 +388,14 @@ a:active {
                     newAttachs.push(attachs[i]);
                   }else{
                     let pn = this.parentNode; // attachContainer
-
+                    
                     // while (pn.firstChild) pn.removeChild(pn.firstChild); // 子要素を全て削除
                     pn.parentNode.removeChild(pn); // 自身を削除
                   }
                 }
                 attachs = newAttachs;
                 currentImg = null;
+                currentNote = null;
                 document.getElementById('files').value = '';
               });
 
@@ -444,7 +443,25 @@ a:active {
                 attachContainer.style.width = drawW + 'px';
                 attachContainer.style.height = drawH + 'px';
                 delBtn.style.top = '-' + attachContainer.style.height;
-                if(numDropped == 1) attachContainer.appendChild(delBtn);
+                if(numDropped == 1) {
+                  attachContainer.appendChild(delBtn);
+                  let txtNote = document.createElement('input');
+                  txtNote.type = 'text';
+                  txtNote.onchange = function() {
+                    currentNote = txtNote.value;
+                  }
+                  txtNote.className = 'note';
+                  txtNote.id = 'note';
+                  txtNote.style.display = 'block';
+                  txtNote.placeholder = '画像の調達手段、または取得元URL';
+                  txtNote.style.margin = '0px';
+                  txtNote.style.position = 'relative';
+                  txtNote.style.top = '-72px';
+                  txtNote.style.left = '6px';
+                  txtNote.style.borderRadius = '4px';
+                  txtNote.style.width = parseInt(attachContainer.style.width) - 17 + 'px';
+                  attachContainer.appendChild(txtNote);
+                }
               }
 
               attachs.push(attachObj);
@@ -587,6 +604,7 @@ a:active {
               if(odais[key].img) {
                 let img = document.createElement('img');
                 img.src = odais[key].img;
+                img.id = 'img' + odais[key]._id;
                 img.style.display = 'block';
                 img.style.borderRadius = '5px';
                 img.style.border = '1px solid #666';
@@ -594,6 +612,13 @@ a:active {
                   img.width = img.width/2;
                   img.height = img.height/2;
                   tdSentence.appendChild(img);
+                  if(odais[key].note || true) {
+                    let note = document.createElement('span');
+                    note.id = 'note_span' + odais[key]._id;
+                    if(odais[key].note) note.innerText = odais[key].note;
+                    note.style.fontSize = '11px';
+                    tdSentence.appendChild(note);
+                  }
                 }
               }
               
@@ -619,14 +644,6 @@ a:active {
                 tdEdit.appendChild(btnEdit);
                 tdEdit.appendChild(btnDel);
               }else{
-                let btnResult = document.createElement('input');
-                btnResult.type = 'button';
-                btnResult.style.color = '#039';
-                btnResult.value = '結果';
-                btnResult.style.borderRadius = '8px';
-                btnResult.addEventListener('click', function(){
-                  location.href = '/admin?mode=eval&targetOdai=' + odais[key]._id + '&d=' + Date.now();
-                });
                 let btnAnswer = document.createElement('input');
                 btnAnswer.type = 'button';
                 btnAnswer.style.color = '#960';
@@ -635,7 +652,6 @@ a:active {
                 btnAnswer.addEventListener('click', function(){
                   location.href = '/answer?targetOdai=' + odais[key]._id + '&d=' + Date.now();
                 });
-                tdEdit.appendChild(btnResult);
                 tdEdit.appendChild(btnAnswer);
               }
 
@@ -728,8 +744,13 @@ a:active {
               if(!errPos) errPos = tbox;
               tbox.style.backgroundColor = '#FBB';
             }
-            if(document.getElementById(odaidivs[i].id.replace('odai', 'img'))){
-              obj.img = document.getElementById(odaidivs[i].id.replace('odai', 'img')).src;
+            const img = document.getElementById(odaidivs[i].id.replace('odai', 'img'));
+            if(img){
+              obj.img = img.src;
+              const note = document.getElementById(odaidivs[i].id.replace('odai', 'note'));
+              if(note) {
+                obj.note = note.value;
+              }
             }
             odaiData.push(obj);
           }
@@ -747,6 +768,7 @@ a:active {
           latestData.sentence = oinput.value;
           if(currentImg) {
             latestData.img = currentImg;
+            if(currentNote) latestData.note = currentNote;
           }
           odaiData.push(latestData);
         }
@@ -816,7 +838,7 @@ a:active {
         let odai = document.createElement('div');
         // odai.innerText = currentOdai;
         
-        odai.style.width = '400px';
+        odai.style.width = '460px';
         if(isMobile) odai.style.width = '90%';
         odai.style.height = '70px';
         odai.style.overflow = 'auto';
@@ -829,6 +851,7 @@ a:active {
         odai.style.padding = '5px';
         odai.style.display = 'inline-block';
         odai.className = 'odai';
+        odai.style.overflow = 'hidden';
         let removeBtn = document.createElement('input');
         removeBtn.type = 'button';
         removeBtn.style.position = 'relative';
@@ -858,8 +881,12 @@ a:active {
         let tSentence = document.createElement('textarea');
         tSentence.rows = 2;
         tSentence.style.borderRadius = '5px';
-        tSentence.style.width = '400px';
-        tSentence.style.height= '50px';
+        if(isMobile) {
+          tSentence.style.width = '95%';
+        }else{
+          tSentence.style.width = parseInt(odai.style.width) - 6 + 'px';
+        }
+        tSentence.style.height= '55px';
         tSentence.style.fontSize = '15px';
         tSentence.style.resize = 'none';
         tSentence.value = currentOdai;
@@ -871,7 +898,7 @@ a:active {
 
         if(currentImg) {
           let imPhoto = document.createElement('img');
-          imPhoto.src = currentImg;
+          let txtNote = document.createElement('input');
           imPhoto.id = 'img' + elemId;
           imPhoto.style.display = 'block';
           imPhoto.style.border = '1px solid #666';
@@ -887,8 +914,19 @@ a:active {
               imPhoto.style.width = drawW/3 + 'px';
               imPhoto.style.height = drawH/3 + 'px';
             }
+            txtNote.id = 'note' + elemId;
+            txtNote.style.left = (parseInt(imPhoto.style.width) + 5) + 'px';
+            txtNote.type = 'text';
+            txtNote.placeholder = '画像の調達手段、または取得元URL';
+            txtNote.value = currentNote;
+            txtNote.style.position = 'relative';
+            txtNote.style.top = '-20px';
+            txtNote.style.borderRadius = '4px';
+            txtNote.style.width = (300 - parseInt(imPhoto.style.width)) + 'px';
+            odai.appendChild(imPhoto);
+            odai.appendChild(txtNote);
           }
-          odai.appendChild(imPhoto);
+          imPhoto.src = currentImg;
           odai.style.height = '150px';
         }
         p.appendChild(removeBtn);
@@ -921,9 +959,10 @@ a:active {
             document.getElementById('oinput').value = suspendedOdai;
           }
         }
+        currentImg = null; // いいのか
+        // currentNote = null; // いいのか
         oinput.focus();
       }
-
 
       let editWin = null;
 
@@ -1009,14 +1048,32 @@ a:active {
       }
 
       function checkLine(elem) {
-        // Ctrl+Z で戻せなくなるので履歴を保存してキー入力を監視するか？
-        const limit = 2;
-        const lines = elem.value.split('\n');
-        const lineNum = lines.length;
-        if(lineNum > limit) {
-          elem.value = '';
-          for(let i = 0; i < limit - 1; i++) elem.value += lines[i] + '\n';
-          elem.value += lines.slice(limit-1, lines.length).join('');
+        // // Ctrl+Z で戻せなくなるので履歴を保存してキー入力を監視するか？
+        // const limit = 2;
+        // const lines = elem.value.split('\n');
+        // const lineNum = lines.length;
+        // if(lineNum > limit) {
+        //   elem.value = '';
+        //   for(let i = 0; i < limit - 1; i++) elem.value += lines[i] + '\n';
+        //   elem.value += lines.slice(limit-1, lines.length).join('');
+        // }
+      }
+
+      window.document.onkeypress = lineCheck;
+      function lineCheck(e){
+        var ta = document.activeElement;
+        if(ta.nodeName.toLowerCase() != 'textarea') return;
+
+        var row = ta.getAttribute('rows');
+        var r = (ta.value.split('\n')).length;
+        if(document.all){
+          if(r >= row && window.event.keyCode == 13) { // IE
+            return false;
+          }
+        } else {
+          if(r >= row && e.which==13) {
+            return false;
+          }
         }
       }
     </script>

@@ -174,6 +174,30 @@
                   img.width = img.width/1.5;
                   img.height = img.height/1.5;
                   tdOdai.appendChild(img);
+                  const checkBtn = document.createElement('button');
+                  checkBtn.innerText = 'CHECK🔍';
+                  checkBtn.style.fontSize = '14px';
+                  checkBtn.style.padding = checkBtn.style.margin = '0px';
+                  checkBtn.style.width = '80px';
+                  checkBtn.style.height = '32px';
+                  // checkBtn.style.position = 'relative';
+                  // checkBtn.style.top = '-34px';
+                  // checkBtn.style.left = '2px';
+                  checkBtn.style.borderRadius = '6px';
+                  checkBtn.onclick = function() {
+                    const file = createJpegFile4Base64(odais[key].img, 'target.jpg');
+                    checkImg(file);
+                  }
+                  tdOdai.appendChild(checkBtn);
+                  if(odais[key].note) {
+                    const note = document.createElement('span');
+                    note.style.fontSize = '12px';
+                    note.style.display = 'inline-block';
+                    note.style.marginLeft = '10px';
+                    const exp = /(\b(https?|ftp|file):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])/ig;
+                    note.innerHTML = odais[key].note.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(exp,"<a href='$1' target=\"_blank\">$1</a>");
+                    tdOdai.appendChild(note);
+                  }
                 }
               }
               tdOdai.appendChild(spanCreatedBy);
@@ -408,7 +432,35 @@
         req.send(JSON.stringify({next: nextId, close_else: closeElese}));
       }
       */
-      
+
+      function checkImg(file) {
+        let uri = '/checkImg';
+        let xhr = (window.XMLHttpRequest)? new XMLHttpRequest() : new ActiveXObject('Microsoft.XMLHTTP');
+        let fd  = new FormData();
+
+        xhr.onreadystatechange = function() {
+          if (xhr.readyState == 4) {
+            if(xhr.status = 200) {
+              window.open('https://www.google.co.jp/searchbyimage?image_url=' + location.href.substring(0, location.href.indexOf(location.pathname))+'/target.jpg' + '?' + Date.now() + '&encoded_image=&image_content=&filename=&hl=ja');
+            }else{
+            }
+          }
+        };
+        // for(let i in files) fd.append('upload', files[i]);
+        fd.append('upload', file);
+        xhr.open('POST', uri, true);
+        xhr.send(fd);
+      }
+
+      function createJpegFile4Base64(base64, name) {
+          var bin = atob(base64.replace(/^.*,/, ''));
+          var buffer = new Uint8Array(bin.length);
+          for (var i = 0; i < bin.length; i++) {
+              buffer[i] = bin.charCodeAt(i);
+          }
+          return new File([buffer.buffer], name, {type: "image/jpeg"});
+      };
+
       function prepareXMLHttpRequest() {
         if (window.XMLHttpRequest) {
           return new XMLHttpRequest();

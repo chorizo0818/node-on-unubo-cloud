@@ -11,6 +11,8 @@
     <script>
       let odaiId = null;
       let sentence = null;
+      let note = null;
+      let hasImg = false;
       let isMobile = false;
       let isEditable = true;
       let initText = '';
@@ -26,6 +28,12 @@
         }
         odaiId = query.odaiId;
         sentence = window.opener.document.getElementById('sentence' + odaiId).innerText;
+        if(window.opener.document.getElementById('note_span' + odaiId)) {
+          note = window.opener.document.getElementById('note_span' + odaiId).innerText;
+        }
+        if(window.opener.document.getElementById('img' + odaiId)) {
+          hasImg = true;
+        }
         checkEditable(odaiId);
       }
       
@@ -36,6 +44,10 @@
         }
         document.getElementById('editarea').value = initText = decodeURIComponent(sentence);
         document.getElementById('editarea').focus();
+
+        if(note) {
+          document.getElementById('note').value = note;
+        }
       }
 
       function checkEditable(odaiId) {
@@ -54,6 +66,9 @@
                 document.getElementById('lock').style.display = 'block';
                 document.getElementById('editarea').disabled = true;
               }
+              if(isEditable && hasImg) {
+                document.getElementById('note').style.display = 'block';
+              }
             }else{
               alert(req.response);
             }
@@ -66,7 +81,8 @@
 
       function editOdai() {
         let editSentence = document.getElementById('editarea').value;
-        if(initText == editSentence || !editSentence.trim()) {
+        let editNote = document.getElementById('note').value;
+        if((initText == editSentence || !editSentence.trim()) && note == editNote) {
           // 変わってなければ送信しない、トリムで空文字になるなら送信しない
           return;
         }
@@ -80,7 +96,10 @@
           if(req.readyState == 4) {
             if(req.status == 200) {
               // if(window.opener) window.opener.redraw();
-              if(window.opener) window.opener.document.getElementById('sentence' + odaiId).innerText = editSentence;
+              if(window.opener) {
+                window.opener.document.getElementById('sentence' + odaiId).innerText = editSentence;
+                if(window.opener.document.getElementById('note_span' + odaiId)) window.opener.document.getElementById('note_span' + odaiId).innerText = editNote;
+              }
               window.close();
             }else{
               alert(req.response);
@@ -88,7 +107,7 @@
           }
         };
         req.open("POST", url, true);
-        let data = {id: odaiId, sentence:editSentence};
+        let data = {id: odaiId, sentence:editSentence, note:editNote};
         req.setRequestHeader("Content-Type" , "text/plain");
         req.send(JSON.stringify(data));
       }
@@ -155,6 +174,7 @@ body{
   </head>
   <body>
     <textarea id="editarea" rows="2" oninput="checkLine(this)" class="editor" style="width:100%;height:100%;font-size:18px;"></textarea>
+    <input id="note" type="text" style="font-size:16px;display:none;width:100%;height:24px;position:fixed;bottom:0px;" placeholder="画像の調達手段、または取得元URL"/>
     <input id="execEdit" type="button" value="編集実行！" style="position:fixed;right:5px;bottom:10px;" onclick="editOdai()"/>
     <div id="lock" style="position:absolute;left:0px;top:0px;width:100%;height:100%;background-color:rgba(0,0,0,0.5);color:#FFF;font-size:16px;display:none;vertical-align:middle;text-align:center;font-weight:bold">この回答は編集できません</div>
   </body>

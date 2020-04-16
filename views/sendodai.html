@@ -93,6 +93,7 @@ a:active {
       let isIE = false;
       let odaiData = [];
       let currentImg = null;
+      let currentNote = null;
       let numDropped = 0;
       let suspendedImg = null;
       let suspendedOdai = '';
@@ -404,6 +405,7 @@ a:active {
                 }
                 attachs = newAttachs;
                 currentImg = null;
+                currentNote = null;
                 document.getElementById('files').value = '';
               });
 
@@ -451,7 +453,25 @@ a:active {
                 attachContainer.style.width = drawW + 'px';
                 attachContainer.style.height = drawH + 'px';
                 delBtn.style.top = '-' + attachContainer.style.height;
-                if(numDropped == 1) attachContainer.appendChild(delBtn);
+                if(numDropped == 1) {
+                  attachContainer.appendChild(delBtn);
+                  let txtNote = document.createElement('input');
+                  txtNote.type = 'text';
+                  txtNote.onchange = function() {
+                    currentNote = txtNote.value;
+                  }
+                  txtNote.className = 'note';
+                  txtNote.id = 'note';
+                  txtNote.style.display = 'block';
+                  txtNote.placeholder = '画像の調達手段、または取得元URL';
+                  txtNote.style.margin = '0px';
+                  txtNote.style.position = 'relative';
+                  txtNote.style.top = '-72px';
+                  txtNote.style.left = '6px';
+                  txtNote.style.borderRadius = '4px';
+                  txtNote.style.width = parseInt(attachContainer.style.width) - 17 + 'px';
+                  attachContainer.appendChild(txtNote);
+                }
               }
 
               attachs.push(attachObj);
@@ -594,6 +614,7 @@ a:active {
               if(odais[key].img) {
                 let img = document.createElement('img');
                 img.src = odais[key].img;
+                img.id = 'img' + odais[key]._id;
                 img.style.display = 'block';
                 img.style.borderRadius = '5px';
                 img.style.border = '1px solid #666';
@@ -601,6 +622,13 @@ a:active {
                   img.width = img.width/2;
                   img.height = img.height/2;
                   tdSentence.appendChild(img);
+                  if(odais[key].note || true) {
+                    let note = document.createElement('span');
+                    note.id = 'note_span' + odais[key]._id;
+                    if(odais[key].note) note.innerText = odais[key].note;
+                    note.style.fontSize = '11px';
+                    tdSentence.appendChild(note);
+                  }
                 }
               }
               
@@ -726,8 +754,13 @@ a:active {
               if(!errPos) errPos = tbox;
               tbox.style.backgroundColor = '#FBB';
             }
-            if(document.getElementById(odaidivs[i].id.replace('odai', 'img'))){
-              obj.img = document.getElementById(odaidivs[i].id.replace('odai', 'img')).src;
+            const img = document.getElementById(odaidivs[i].id.replace('odai', 'img'));
+            if(img){
+              obj.img = img.src;
+              const note = document.getElementById(odaidivs[i].id.replace('odai', 'note'));
+              if(note) {
+                obj.note = note.value;
+              }
             }
             odaiData.push(obj);
           }
@@ -745,6 +778,7 @@ a:active {
           latestData.sentence = oinput.value;
           if(currentImg) {
             latestData.img = currentImg;
+            if(currentNote) latestData.note = currentNote;
           }
           odaiData.push(latestData);
         }
@@ -827,6 +861,7 @@ a:active {
         odai.style.padding = '5px';
         odai.style.display = 'inline-block';
         odai.className = 'odai';
+        odai.style.overflow = 'hidden';
         let removeBtn = document.createElement('input');
         removeBtn.type = 'button';
         removeBtn.style.position = 'relative';
@@ -856,7 +891,11 @@ a:active {
         let tSentence = document.createElement('textarea');
         tSentence.rows = 2;
         tSentence.style.borderRadius = '5px';
-        tSentence.style.width = '420px';
+        if(isMobile) {
+          tSentence.style.width = '95%';
+        }else{
+          tSentence.style.width = parseInt(odai.style.width) - 6 + 'px';
+        }
         tSentence.style.height= '55px';
         tSentence.style.fontSize = '15px';
         tSentence.style.resize = 'none';
@@ -869,7 +908,7 @@ a:active {
 
         if(currentImg) {
           let imPhoto = document.createElement('img');
-          imPhoto.src = currentImg;
+          let txtNote = document.createElement('input');
           imPhoto.id = 'img' + elemId;
           imPhoto.style.display = 'block';
           imPhoto.style.border = '1px solid #666';
@@ -885,8 +924,19 @@ a:active {
               imPhoto.style.width = drawW/3 + 'px';
               imPhoto.style.height = drawH/3 + 'px';
             }
+            txtNote.id = 'note' + elemId;
+            txtNote.style.left = (parseInt(imPhoto.style.width) + 5) + 'px';
+            txtNote.type = 'text';
+            txtNote.placeholder = '画像の調達手段、または取得元URL';
+            txtNote.value = currentNote;
+            txtNote.style.position = 'relative';
+            txtNote.style.top = '-20px';
+            txtNote.style.borderRadius = '4px';
+            txtNote.style.width = (300 - parseInt(imPhoto.style.width)) + 'px';
+            odai.appendChild(imPhoto);
+            odai.appendChild(txtNote);
           }
-          odai.appendChild(imPhoto);
+          imPhoto.src = currentImg;
           odai.style.height = '150px';
         }
         p.appendChild(removeBtn);
@@ -919,6 +969,8 @@ a:active {
             document.getElementById('oinput').value = suspendedOdai;
           }
         }
+        currentImg = null; // いいのか
+        // currentNote = null; // いいのか
         oinput.focus();
       }
 

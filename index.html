@@ -26,7 +26,7 @@
         let anchors = document.getElementsByTagName('a');
         let jumpto = encodeURIComponent('/');
         for(let i in anchors){
-          anchors[i].href += '?d=' + Date.now();
+          if(anchors[i].href && anchors[i].href.indexOf('?d=') == -1) anchors[i].href += '?d=' + Date.now();
         }
         var msgs_error = ['ラジオネームとパスワードが一致しません', 'ラジオネームを入力してください'];
         document.getElementById('userName').focus();

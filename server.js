@@ -1337,6 +1337,7 @@ app.post('/sendodai', function(request, response) {
               }
 
               if(odais[i].img) obj.img = odais[i].img;
+              if(odais[i].note) obj.note = odais[i].note;
               obj.user_id = createdBy;
               obj.date = date;
               data.push(obj);
@@ -2993,6 +2994,7 @@ app.post('/edit_odai', function(request, response) {
       let editObj = JSON.parse(data);
       let odaiId = editObj.id;
       let sentence = editObj.sentence;
+      let note = editObj.note;
 
       if(sentence.split('\n').length > lineLimit) {
         response.status(400);
@@ -3041,7 +3043,7 @@ app.post('/edit_odai', function(request, response) {
                   response.status(400);
                   response.send('Error.\n編集に失敗しました。');
                 }else{
-                  odaiCol.updateOne({$or:[{_id:{$eq:odaiId}}, {_id:{$eq:oid}}]}, {$set:{sentence: sentence}},(err3, result1)=>{
+                  odaiCol.updateOne({$or:[{_id:{$eq:odaiId}}, {_id:{$eq:oid}}]}, {$set:{sentence: sentence, note: note}},(err3, result1)=>{
                     if(err3) {
                       response.status(500);
                       response.send('Server Error.\n内部エラーです。申し訳ありません。d');

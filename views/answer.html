@@ -57,8 +57,8 @@
       let showHelp = true;
       let newFuture = false; // 新機能がある
       let showPrev = true;
-      const storageHistory = ['showHelp_toshitoko', 'showHelp_toshitoko_20190627', 'showHelp_toshitoko_20190810'];
-      const currentStorageKey = 'showHelp_toshitoko_20190906';
+      const storageHistory = ['showHelp_toshitoko', 'showHelp_toshitoko_20190627', 'showHelp_toshitoko_20190810', 'showHelp_toshitoko_20190906'];
+      const currentStorageKey = 'showHelp_toshitoko_20200415';
       for(let i in storageHistory) {
         localStorage.removeItem(storageHistory[i]);
       }
@@ -2113,9 +2113,8 @@ table tbody tr:last-child td {
 
     <div id="answers" style="margin-top:20px;">
       <p style="font-size:14px;">本システム導入前（#2～#50）の各動画へのリンクは<a href="javascript:void(0);" onclick="window.open('./archive.html?d=' + Date.now(), '_blank', 'width=480,height=480');return false;" style="text-decoration:none;">こちら</a>にまとめました。</p>
-      <p style="font-size:14px;">
-        現状、システム的に制限してはいませんが、絵の回答は<strong>2個まで</strong>としてください。ご協力お願いいたします。
-      </p>
+      <p style="font-size:14px;"><a href="https://toshi-giri.herokuapp.com/" style="text-decoration:none;">ミラーサイト</a>を用意しました。</p>
+      <p style="font-size:14px;">現状、システム的に制限してはいませんが、絵の回答は<strong>2個まで</strong>としてください。ご協力お願いいたします。</p>
       <div id="helpExpander" style="cursor:pointer;font-size:12px;color:#666;display:block;position:relative;width:375px;background-color:#F9F9F9;padding:3px 0px;text-align:left;border:1px solid #000;border-radius:3px 3px 0px 0px;" onclick="changeHelp()">&nbsp;▲&nbsp;ヘルプ</div>
       <div id="helpContainer" style="display:none;overflow:auto;position:relative;top:-2px;width:375px;height:157.5px;font-family:Arial, Verdana, Roboto, メイリオ, Meiryo; background-color:#EEE;padding:0px;border:1px solid #000;margin-bottom:15px;">
         <p style="font-size:14px;margin:10px 0px -12px -5px;font-weight:bold;">【 回答の方法 】</p><p style="font-size:12px;padding:0px 5px;">上のセレクトボックスからお題を選択し、テキストエリアに回答を記入します。その状態で「<span style="font-weight:bold;">送信</span>」ボタンを押すと送信します。<br/>また、「<span style="font-weight:bold;">追加</span>」ボタンで回答をストックしてから「<span style="font-weight:bold;">送信</span>」で、複数回答をまとめて送信することもできます。</p>
@@ -2123,7 +2122,8 @@ table tbody tr:last-child td {
         <p style="font-size:14px;margin:10px 0px -12px -5px;font-weight:bold;">【 プライベート機能 】</p><p style="font-size:12px;padding:0px 5px;">錠前アイコンをクリックしてロックした状態にすると、その回答は自分にしか見えなくなります。管理者にも見えないため、<span style="font-weight:bold;">評価対象からは除外</span>されます。再度クリックすると公開状態に戻ります。</p>
         <p style="font-size:14px;margin:10px 0px -12px -5px;font-weight:bold;">【 しるし機能 】</p><p style="font-size:12px;padding:0px 5px;">各回答の電球アイコン（プライベート錠前の右隣）をクリックして電球をオン／オフできます。電球の状態は管理者（トシゾーさん）側には影響を与えません。選考にも無関係です。<br/>自分専用の目印です。「選外で読まれた」とか「あとで編集する」など、どのような意味で使っていただいてもオッケーです。</p>
         <p style="font-size:14px;margin:10px 0px -12px -5px;font-weight:bold;">【 お絵描き機能 】</p><p style="font-size:12px;padding:0px 5px;">文章お題に対してのみ、絵による回答が可能です。回答入力ボックスの右側にあるボタンをクリックするとお絵描きウィンドウを開きます。絵を描いたら「完了」ボタンを押すと回答に反映します。<br/><span style="font-size:10px;">※一部のペンタブレットでは動作しないという報告をいただきました。絵が描けないかたは環境を<a href="https://twitter.com/Drill_into_CEO">Drill_into_CEO</a>までご連絡いただけると対応する可能性があります。</span></p>
-        <p style="font-size:14px;margin:10px 0px -12px -5px;font-weight:bold;">【 位置揃え機能 】<span style="color:#F00;font-size:11px;">2019/09/06 NEW</span></p><p style="font-size:12px;padding:0px 5px;">複数行にわたる回答を 左寄せ／右寄せ に設定する機能を追加しました。<br/>回答の先頭に [left] と書くと左寄せ、[right] と書くと右寄せとなります。<br/>回答入力ボックス下部のボタンでも切り替え可能です。</p>
+        <p style="font-size:14px;margin:10px 0px -12px -5px;font-weight:bold;">【 位置揃え機能 】</p><p style="font-size:12px;padding:0px 5px;">複数行にわたる回答を 左寄せ／右寄せ に設定する機能を追加しました。<br/>回答の先頭に [left] と書くと左寄せ、[right] と書くと右寄せとなります。<br/>回答入力ボックス下部のボタンでも切り替え可能です。</p>
+        <p style="font-size:14px;margin:10px 0px -12px -5px;font-weight:bold;">【 画像お題注釈機能 】<span style="color:#F00;font-size:11px;">2020/04/15 NEW</span></p><p style="font-size:12px;padding:0px 5px;">画像お題の投稿時に注釈を入れる機能を追加しました。画像が確かに商用利用可能なフリー素材であることを管理者（トシゾーさん）に伝えることで、安心して採用してもらえるようになります。<br/>すでに投稿済みの画像お題についても、お題投稿画面で「編集」ボタンを押して注釈を追加できます。</p>
       </div>
       <input type="button" id="odaiselectbtn" value="お題選択" style="display:none;"/><span id="odaispan" style="display:none;font-size:13px;"></span>
 
